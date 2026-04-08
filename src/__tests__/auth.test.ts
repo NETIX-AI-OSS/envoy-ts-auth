@@ -1,0 +1,413 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { Auth, type AuthConfig } from '../index'
+
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: vi.fn(),
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
+    multiRemove: vi.fn(),
+  },
+}))
+
+vi.mock('js-cookie', () => ({
+  default: {
+    get: vi.fn(),
+    set: vi.fn(),
+    remove: vi.fn(),
+  },
+}))
+
+const baseConfig: AuthConfig = {
+  COOKIE_TOKEN_TTL: '300',
+  COOKIE_REFRESH_TTL: '86400',
+  COOKIE_SECURE: true,
+  COOKIE_DOMAIN: '.example.com',
+  BASE_DOMAIN: 'example.com',
+  CURRENT_APP_DOMAIN: 'app.example.com',
+  LOGIN_PAGE_URL: 'https://auth.example.com/login',
+  AUTH_BASE_URL: 'https://auth.example.com',
+  LAUNCHPAD_PAGE_URL: 'https://app.example.com',
+  REFRESH_ENDPOINT: '/auth/token/refresh/',
+  VERIFY_ENDPOINT: '/auth/token/verify/',
+  TOKEN_ENDPOINT: '/auth/token/',
+}
+
+function stubLocation(url: string) {
+  const parsed = new URL(url)
+  const locationMock = {
+    href: parsed.toString(),
+    search: parsed.search,
+    hostname: parsed.hostname,
+    replace: vi.fn(),
+  } as unknown as Location
+
+  vi.stubGlobal('location', locationMock)
+  return locationMock
+}
+
+describe('Auth', () => {
+  beforeEach(() => {
+    Auth.reset()
+    vi.resetAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  // ── Initialization ────────────────────────────────────────────────────────
+
+  describe('initialize', () => {
+    it('throws when required config properties are missing', () => {
+      const incomplete = { ...baseConfig } as Partial<AuthConfig>
+      delete incomplete.AUTH_BASE_URL
+      expect(() => Auth.initialize(incomplete as AuthConfig)).toThrow('AUTH_BASE_URL')
+    })
+
+    it('throws if called twice without reset', () => {
+      Auth.initialize(baseConfig)
+      expect(() => Auth.initialize(baseConfig)).toThrow('already initialized')
+    })
+
+    it('throws when current app domain is deeper than one subdomain under the base domain', () => {
+      expect(() =>
+        Auth.initialize({
+          ...baseConfig,
+          CURRENT_APP_DOMAIN: 'deep.app.example.com',
+        })
+      ).toThrow('CURRENT_APP_DOMAIN')
+    })
+  })
+
+  describe('getInstance', () => {
+    it('throws if not initialized', () => {
+      expect(() => Auth.getInstance()).toThrow('not initialized')
+    })
+
+    it('returns an instance after initialization', () => {
+      Auth.initialize(baseConfig)
+      expect(Auth.getInstance()).toBeDefined()
+    })
+  })
+
+  describe('reset', () => {
+    it('allows re-initialization', () => {
+      Auth.initialize(baseConfig)
+      Auth.reset()
+      expect(() => Auth.initialize(baseConfig)).not.toThrow()
+    })
+  })
+
+  // ── Storage helpers ───────────────────────────────────────────────────────
+
+  describe('allCookies', () => {
+    it('returns unavailable on native platform', () => {
+      Auth.initialize({ ...baseConfig, NATIVE_PLATFORM: true })
+      expect(Auth.getInstance().allCookies()).toEqual({ message: 'Unavailable' })
+    })
+
+    it('parses document.cookie on web platform', () => {
+      Auth.initialize(baseConfig)
+      document.cookie = 'token=abc123'
+      const result = Auth.getInstance().allCookies() as Record<string, string>
+      expect(result['token']).toBe('abc123')
+    })
+  })
+
+  describe('isKeyPresent', () => {
+    it('returns true when key exists in document.cookie', async () => {
+      Auth.initialize(baseConfig)
+      document.cookie = 'mykey=myvalue'
+      expect(await Auth.getInstance().isKeyPresent('mykey')).toBe(true)
+    })
+
+    it('returns false when key is absent', async () => {
+      Auth.initialize(baseConfig)
+      expect(await Auth.getInstance().isKeyPresent('nonexistent_key_xyz')).toBe(false)
+    })
+  })
+
+  // ── Token lifecycle ───────────────────────────────────────────────────────
+
+  describe('getToken', () => {
+    it('verifies an existing token and returns it', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('stored-token')
+      global.fetch = vi.fn().mockResolvedValue({ status: 200, ok: true })
+
+      expect(await auth.getToken()).toBe('stored-token')
+    })
+
+    it('calls reviveToken when no token is present', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(false)
+      vi.spyOn(auth, 'reviveToken').mockResolvedValue(undefined)
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('revived-token')
+
+      await auth.getToken()
+      expect(auth.reviveToken).toHaveBeenCalled()
+    })
+
+    it('returns cached token on subsequent calls within cache window', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('cached-token')
+      global.fetch = vi.fn().mockResolvedValue({ status: 200, ok: true })
+
+      await auth.getToken()
+      await auth.getToken()
+
+      // fetch called only once; second call hits the in-memory cache
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('reviveToken', () => {
+    it('returns failure status when no refresh token is present', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(false)
+
+      expect(await auth.reviveToken()).toMatchObject({ status: 'failed' })
+    })
+
+    it('returns failure when refresh token value is null', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue(null)
+
+      expect(await auth.reviveToken()).toMatchObject({ status: 'failed' })
+    })
+
+    it('updates access token on successful refresh', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('my-refresh-token')
+      const setKeyValue = vi.spyOn(auth, 'setKeyValue').mockResolvedValue(undefined)
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ access: 'new-access-token' }),
+      })
+
+      const result = await auth.reviveToken()
+      expect(result).toBe('new-access-token')
+      expect(setKeyValue).toHaveBeenCalledWith(
+        expect.objectContaining({ key: 'token', value: 'new-access-token' })
+      )
+    })
+  })
+
+  // ── Auth actions ──────────────────────────────────────────────────────────
+
+  describe('login', () => {
+    it('sets token cookies and returns true on success', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      const setKeyValue = vi.spyOn(auth, 'setKeyValue').mockResolvedValue(undefined)
+      vi.spyOn(auth, 'redirectToSourcePage').mockReturnValue(undefined)
+      global.fetch = vi.fn().mockResolvedValue({
+        status: 200,
+        ok: true,
+        json: async () => ({ access: 'access-tok', refresh: 'refresh-tok' }),
+      })
+
+      expect(await auth.login('user', 'pass')).toBe(true)
+      expect(setKeyValue).toHaveBeenCalledWith(
+        expect.objectContaining({ key: 'token', value: 'access-tok' })
+      )
+      expect(setKeyValue).toHaveBeenCalledWith(
+        expect.objectContaining({ key: 'refresh', value: 'refresh-tok' })
+      )
+    })
+
+    it('returns false when response is missing the refresh token', async () => {
+      Auth.initialize(baseConfig)
+      global.fetch = vi.fn().mockResolvedValue({
+        status: 200,
+        ok: true,
+        json: async () => ({ access: 'access-tok' }),
+      })
+
+      expect(await Auth.getInstance().login('user', 'pass')).toBe(false)
+    })
+  })
+
+  describe('logout', () => {
+    it('clears storage then redirects', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      const clearCookies = vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+      const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+
+      await auth.logout()
+      expect(clearCookies).toHaveBeenCalled()
+      expect(redirect).toHaveBeenCalled()
+    })
+  })
+
+  describe('redirects', () => {
+    it('includes continue when the current app URL matches the configured app domain', () => {
+      Auth.initialize(baseConfig)
+      const locationMock = stubLocation('https://app.example.com/workspace?tab=1')
+
+      Auth.getInstance().redirectToLoginPage()
+
+      const redirected = new URL(locationMock.href)
+      expect(redirected.origin + redirected.pathname).toBe('https://auth.example.com/login')
+      expect(redirected.searchParams.get('continue')).toBe(
+        'https://app.example.com/workspace?tab=1'
+      )
+    })
+
+    it('omits continue when the current URL is deeper than one subdomain under the base domain', () => {
+      Auth.initialize(baseConfig)
+      const locationMock = stubLocation('https://deep.app.example.com/workspace')
+
+      Auth.getInstance().redirectToLoginPage()
+
+      const redirected = new URL(locationMock.href)
+      expect(redirected.origin + redirected.pathname).toBe('https://auth.example.com/login')
+      expect(redirected.searchParams.has('continue')).toBe(false)
+    })
+
+    it('redirects to a validated continue URL on the base domain', () => {
+      Auth.initialize(baseConfig)
+      const locationMock = stubLocation('https://auth.example.com/login?continue=https%3A%2F%2Fexample.com%2Fhome')
+
+      Auth.getInstance().redirectToSourcePage()
+
+      expect(locationMock.replace).toHaveBeenCalledWith('https://example.com/home')
+    })
+
+    it('redirects to a validated continue URL on a single-level subdomain', () => {
+      Auth.initialize(baseConfig)
+      const locationMock = stubLocation('https://auth.example.com/login?continue=https%3A%2F%2Fuser.example.com%2Fhome')
+
+      Auth.getInstance().redirectToSourcePage()
+
+      expect(locationMock.replace).toHaveBeenCalledWith('https://user.example.com/home')
+    })
+
+    it('falls back to launchpad when continue points to a deeper subdomain', () => {
+      Auth.initialize(baseConfig)
+      const locationMock = stubLocation(
+        'https://auth.example.com/login?continue=https%3A%2F%2Fdeep.app.example.com%2Fhome'
+      )
+
+      Auth.getInstance().redirectToSourcePage()
+
+      expect(locationMock.replace).toHaveBeenCalledWith('https://app.example.com')
+    })
+
+    it('falls back to launchpad when continue uses a non-https scheme', () => {
+      Auth.initialize(baseConfig)
+      const locationMock = stubLocation(
+        'https://auth.example.com/login?continue=http%3A%2F%2Fapp.example.com%2Fhome'
+      )
+
+      Auth.getInstance().redirectToSourcePage()
+
+      expect(locationMock.replace).toHaveBeenCalledWith('https://app.example.com')
+    })
+  })
+
+  // ── isLoggedIn redirect ───────────────────────────────────────────────────
+
+  describe('isLoggedIn', () => {
+    it('redirects to a validated continue URL when already logged in', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getToken').mockResolvedValue('valid-token')
+      const locationMock = stubLocation(
+        'https://auth.example.com/login?continue=https%3A%2F%2Fapp.example.com%2Fdashboard'
+      )
+
+      await auth.isLoggedIn()
+
+      expect(locationMock.replace).toHaveBeenCalledWith('https://app.example.com/dashboard')
+    })
+
+    it('falls back to launchpad when continue is on a foreign domain', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getToken').mockResolvedValue('valid-token')
+      const locationMock = stubLocation(
+        'https://auth.example.com/login?continue=https%3A%2F%2Fevil.com%2Fphish'
+      )
+
+      await auth.isLoggedIn()
+
+      expect(locationMock.replace).toHaveBeenCalledWith('https://app.example.com')
+    })
+  })
+
+  // ── User info ─────────────────────────────────────────────────────────────
+
+  describe('getUser', () => {
+    it('fetches user from the API and returns data', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getToken').mockResolvedValue('valid-token')
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: 1, username: 'testuser' }),
+      })
+
+      expect(await auth.getUser()).toEqual({ id: 1, username: 'testuser' })
+    })
+
+    it('returns cached user on subsequent calls within cache window', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getToken').mockResolvedValue('valid-token')
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: 1 }),
+      })
+
+      await auth.getUser()
+      await auth.getUser()
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('getPermissions', () => {
+    it('returns flat permissions array from groups_detailed', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getUser').mockResolvedValue({
+        groups_detailed: {
+          admin: { permissions: ['read', 'write'] },
+          viewer: { permissions: ['read'] },
+        },
+      })
+
+      expect(await auth.getPermissions()).toEqual(['read', 'write', 'read'])
+    })
+
+    it('returns empty array when user has no groups_detailed', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getUser').mockResolvedValue({ id: 1 })
+
+      expect(await auth.getPermissions()).toEqual([])
+    })
+  })
+
+  describe('getGroups', () => {
+    it('returns group names from groups_detailed', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getUser').mockResolvedValue({
+        groups_detailed: { admin: {}, viewer: {} },
+      })
+
+      expect(await auth.getGroups()).toEqual(['admin', 'viewer'])
+    })
+  })
+})

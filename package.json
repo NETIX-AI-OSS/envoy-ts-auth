@@ -1,0 +1,52 @@
+{
+  "name": "auth",
+  "version": "1.4.13",
+  "description": "TypeScript authentication helper for web and React Native clients",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NETIX-AI-OSS/auth.git"
+  },
+  "author": "NETIX.AI OSS",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node ./src/index.ts",
+    "test": "vitest run",
+    "docs:api": "node scripts/generate-api-docs.mjs",
+    "docs": "yarn docs:api"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^1.20.0",
+    "js-cookie": "^3.0.5"
+  },
+  "devDependencies": {
+    "@types/js-cookie": "^3.0.6",
+    "@types/node": "^18.11.18",
+    "jsdom": "^24.0.0",
+    "ts-node": "^10.9.1",
+    "typedoc": "^0.28.18",
+    "typedoc-plugin-markdown": "^4.11.0",
+    "typescript": "^5.8.3",
+    "vitest": "^2.1.0"
+  },
+  "resolutions": {
+    "yaml": ">=2.8.3"
+  },
+  "bugs": {
+    "url": "https://github.com/NETIX-AI-OSS/auth/issues"
+  },
+  "homepage": "https://github.com/NETIX-AI-OSS/auth#readme",
+  "keywords": [
+    "auth",
+    "typescript",
+    "web",
+    "react-native",
+    "jwt",
+    "oss"
+  ]
+}
