@@ -16,17 +16,14 @@ exports.REDIRECT_DESTINATION_URL = "continue";
  * @property {string} UNABLE_TO_CHECK_LOGIN_STATUS - Thrown if login status cannot be checked.
  */
 exports.ERROR_MESSAGES = {
-  /** Thrown if the package is not initialized. */
-  NOT_INITIALIZED:
-    "auth: Authentication package is not initialized. Call Auth.initialize(...) before using Auth.getInstance().",
-  /** Thrown if the package is initialized more than once. */
-  ALREADY_INITIALIZED: "auth: Authentication package is already initialized.",
-  /** Thrown if required config properties are missing. */
-  MISSING_PROPERTIES: "auth: Configuration properties are missing",
-  /** Thrown if the config is unavailable. */
-  CONFIG_UNAVAILABLE:
-    "auth: Auth config not available. This should not happen if you have initialized authentication via Auth.initialize(...). Please contact the author in case you encounter this error.",
-  /** Thrown if login status cannot be checked. */
-  UNABLE_TO_CHECK_LOGIN_STATUS:
-    "auth: Unable to check login status. Please check your network connection or try again later.",
+    /** Thrown if the package is not initialized. */
+    NOT_INITIALIZED: "auth: Authentication package is not initialized. Call Auth.initialize(...) before using Auth.getInstance().",
+    /** Thrown if the package is initialized more than once. */
+    ALREADY_INITIALIZED: "auth: Authentication package is already initialized.",
+    /** Thrown if required config properties are missing. */
+    MISSING_PROPERTIES: "auth: Configuration properties are missing",
+    /** Thrown if the config is unavailable. */
+    CONFIG_UNAVAILABLE: "auth: Auth config not available. This should not happen if you have initialized authentication via Auth.initialize(...). Please contact the author in case you encounter this error.",
+    /** Thrown if login status cannot be checked. */
+    UNABLE_TO_CHECK_LOGIN_STATUS: "auth: Unable to check login status. Please check your network connection or try again later.",
 };
