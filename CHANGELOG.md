@@ -1,0 +1,29 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [Unreleased]
+
+## [1.4.13] — OSS Public Release Prep
+
+### Added
+- OSS-focused README with Mermaid diagrams (auth state model, token workflow, storage strategy).
+- Developer documentation under `docs/`: architecture, configuration, getting-started, troubleshooting, workflows.
+- Governance files: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`.
+- `docs/release-checklist.md` for release execution.
+- GitHub issue templates (bug report, feature request) and pull request template.
+- Vitest test suite (`src/__tests__/auth.test.ts`) with jsdom environment.
+- GitHub Actions CI workflow (build + test on push/PR to `main`).
+- `Auth.reset()` static method for test teardown and re-initialization.
+
+### Changed
+- License migrated to AGPL-3.0-only.
+- `@types/node` moved from `dependencies` to `devDependencies`.
+- `package.json` now declares `types` and `files` fields for correct TypeScript resolution and install footprint.
+- Removed non-standard `include`/`exclude` fields from `package.json`.
+- Removed unused `start` script.
+- `ON_LOGIN` and `ON_LOGOUT` callback types narrowed from `Function` to `() => void`.
+- Permissions and groups return types corrected from boxed `String[]` to `string[]`.
+- Removed debug `console.log` calls from `getToken()` and `getUser()`.
+- `isLoggedIn()` now documents its redirect side-effect in JSDoc.
