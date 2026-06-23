@@ -48,5 +48,6 @@
     "react-native",
     "jwt",
     "oss"
-  ]
+  ],
+  "packageManager": "pnpm@11.8.0"
 }
