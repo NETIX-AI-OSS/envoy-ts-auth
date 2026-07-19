@@ -1,6 +1,6 @@
 {
   "name": "envoy-ts-auth",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "TypeScript authentication helper for web and React Native clients",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

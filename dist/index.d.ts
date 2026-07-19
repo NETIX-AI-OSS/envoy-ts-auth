@@ -139,6 +139,13 @@ declare class Auth {
     redirectToSourcePage(): void;
     /**
      * Gets the current user from the API or cache.
+     *
+     * Only a 401 (session problem) triggers the login redirect. Any other
+     * failure — 403 from a fail-closed permission gate, 429, 5xx — resolves to
+     * `null` so callers can surface an in-app error/no-permission state instead
+     * of bouncing a logged-in user to the login page (which would loop straight
+     * back while the session is still valid).
+     *
      * @returns The user object or null if not found.
      * @throws {Error} If the Auth config is unavailable.
      */
@@ -149,6 +156,19 @@ declare class Auth {
      * @throws {Error} If the Auth config is unavailable.
      */
     getPermissions(): Promise<string[] | undefined>;
+    /**
+     * Whether the current user holds the given permission codename.
+     * @param codename Canonical bare permission codename (e.g. "gateway-config-apply").
+     */
+    hasPermission(codename: string): Promise<boolean>;
+    /**
+     * Whether the current user holds ANY of the given permission codenames.
+     */
+    hasAnyPermission(codenames: readonly string[]): Promise<boolean>;
+    /**
+     * Whether the current user holds ALL of the given permission codenames.
+     */
+    hasAllPermissions(codenames: readonly string[]): Promise<boolean>;
     /**
      * Gets the groups for the current user.
      * @returns Array of group names or empty array.
@@ -213,3 +233,21 @@ declare class Auth {
  * @category Auth
  */
 export { Auth };
+/**
+ * Whether an HTTP status from a BUSINESS API call signals a broken session,
+ * i.e. the caller should run its refresh/re-login flow.
+ *
+ * Only 401 qualifies. A 403 on a business endpoint means the user is
+ * authenticated but lacks permission — redirecting to login would bounce the
+ * still-valid session straight back and loop. Surface 403 in-app instead
+ * (error state, NoPermission view, toast).
+ *
+ * Note: a 403 from the auth server's own token verify/refresh endpoints is a
+ * session-level signal (blacklisted token); {@link Auth.verifyToken} and
+ * {@link Auth.reviveToken} already handle that case internally.
+ *
+ * @param status HTTP status code from a business API response.
+ * @category Auth
+ */
+export declare function isSessionError(status: number): boolean;
+export { PERMISSIONS, PERMISSION_SET, PERMISSIONS_BY_MODULE, type Permission, } from "./permissions.generated";

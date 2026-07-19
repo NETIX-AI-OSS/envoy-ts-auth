@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Auth, type AuthConfig } from '../index'
+import { Auth, isSessionError, type AuthConfig } from '../index'
 
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: {
@@ -374,10 +374,67 @@ describe('Auth', () => {
       await auth.getUser()
       expect(global.fetch).toHaveBeenCalledTimes(1)
     })
+
+    it('propagates a 403 (permission denied) without redirecting or clearing cookies', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getToken').mockResolvedValue('valid-token')
+      const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+      const clearCookies = vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 403 })
+
+      expect(await auth.getUser()).toBeNull()
+      expect(redirect).not.toHaveBeenCalled()
+      expect(clearCookies).not.toHaveBeenCalled()
+    })
+
+    it('propagates a 5xx without redirecting to login', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getToken').mockResolvedValue('valid-token')
+      const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 })
+
+      expect(await auth.getUser()).toBeNull()
+      expect(redirect).not.toHaveBeenCalled()
+    })
+
+    it('keeps the login redirect for a 401 (session problem)', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getToken').mockResolvedValue('stale-token')
+      const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 401 })
+
+      await auth.getUser()
+      expect(redirect).toHaveBeenCalled()
+    })
+
+    it('resolves permission checks to false on 403 instead of redirecting', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getToken').mockResolvedValue('valid-token')
+      const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 403 })
+
+      expect(await auth.getPermissions()).toBeUndefined()
+      expect(await auth.hasPermission('tag-view')).toBe(false)
+      expect(redirect).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('isSessionError', () => {
+    it('treats only 401 as a session error', () => {
+      expect(isSessionError(401)).toBe(true)
+      expect(isSessionError(403)).toBe(false)
+      expect(isSessionError(429)).toBe(false)
+      expect(isSessionError(500)).toBe(false)
+      expect(isSessionError(200)).toBe(false)
+    })
   })
 
   describe('getPermissions', () => {
-    it('returns flat permissions array from groups_detailed', async () => {
+    it('returns deduped permissions from groups_detailed', async () => {
       Auth.initialize(baseConfig)
       const auth = Auth.getInstance()
       vi.spyOn(auth, 'getUser').mockResolvedValue({
@@ -387,7 +444,7 @@ describe('Auth', () => {
         },
       })
 
-      expect(await auth.getPermissions()).toEqual(['read', 'write', 'read'])
+      expect(await auth.getPermissions()).toEqual(['read', 'write'])
     })
 
     it('returns empty array when user has no groups_detailed', async () => {
@@ -396,6 +453,40 @@ describe('Auth', () => {
       vi.spyOn(auth, 'getUser').mockResolvedValue({ id: 1 })
 
       expect(await auth.getPermissions()).toEqual([])
+    })
+
+    it('unions top-level permissions with group-derived permissions', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getUser').mockResolvedValue({
+        permissions: ['tag-view', 'gateway-config-apply'],
+        groups_detailed: { admin: { permissions: ['tag-edit', 'tag-view'] } },
+      })
+
+      // direct + group, normalized + deduped (tag-view appears in both)
+      expect(await auth.getPermissions()).toEqual(['tag-view', 'gateway-config-apply', 'tag-edit'])
+    })
+
+    it('normalises legacy module.codename entries to bare codenames', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getUser').mockResolvedValue({ permissions: ['Tags.tag-view', 'haystack.read'] })
+
+      expect(await auth.getPermissions()).toEqual(['tag-view', 'read'])
+    })
+  })
+
+  describe('hasPermission', () => {
+    it('reflects the canonical permission list', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getUser').mockResolvedValue({ permissions: ['tag-view', 'tag-edit'] })
+
+      expect(await auth.hasPermission('tag-edit')).toBe(true)
+      expect(await auth.hasPermission('tag-delete')).toBe(false)
+      expect(await auth.hasAnyPermission(['nope', 'tag-view'])).toBe(true)
+      expect(await auth.hasAllPermissions(['tag-view', 'tag-delete'])).toBe(false)
+      expect(await auth.hasAllPermissions(['tag-view', 'tag-edit'])).toBe(true)
     })
   })
 
