@@ -12,7 +12,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Auth = void 0;
+exports.PERMISSIONS_BY_MODULE = exports.PERMISSION_SET = exports.PERMISSIONS = exports.Auth = void 0;
+exports.isSessionError = isSessionError;
 const async_storage_1 = __importDefault(require("@react-native-async-storage/async-storage"));
 const settings_1 = require("./conf/settings");
 const Cookies = require("js-cookie");
@@ -234,6 +235,13 @@ class Auth {
     }
     /**
      * Gets the current user from the API or cache.
+     *
+     * Only a 401 (session problem) triggers the login redirect. Any other
+     * failure — 403 from a fail-closed permission gate, 429, 5xx — resolves to
+     * `null` so callers can surface an in-app error/no-permission state instead
+     * of bouncing a logged-in user to the login page (which would loop straight
+     * back while the session is still valid).
+     *
      * @returns The user object or null if not found.
      * @throws {Error} If the Auth config is unavailable.
      */
@@ -262,8 +270,14 @@ class Auth {
                         this.cachedUser = data;
                         return data;
                     }
-                    else {
+                    else if (isSessionError(response.status)) {
                         this.redirectToLoginPage();
+                    }
+                    else {
+                        // 403 (permission denied for an authenticated user), 429, 5xx, …:
+                        // not a session problem — propagate to the caller instead of
+                        // redirecting, so the app can render its own error/no-permission UI.
+                        return null;
                     }
                 }
             }
@@ -285,18 +299,57 @@ class Auth {
             try {
                 const user = yield this.getUser();
                 if (user) {
-                    const permissions = (user === null || user === void 0 ? void 0 : user.groups_detailed)
-                        ? Object.values(user === null || user === void 0 ? void 0 : user.groups_detailed)
-                            .map((u) => u.permissions)
+                    // Union the top-level `permissions` list (direct grants — and, once the backend ships
+                    // it, the direct+group union) with every group permission from `groups_detailed`.
+                    // Unioning both sources rather than preferring one is robust to rollout ordering: a
+                    // frontend upgraded before the backend still sees group-derived permissions. Each entry
+                    // is normalised to its bare codename (stripping any legacy "module." prefix) so callers
+                    // compare against the one canonical identifier, then deduplicated.
+                    const topLevel = Array.isArray(user.permissions) ? user.permissions : [];
+                    const groupPermissions = (user === null || user === void 0 ? void 0 : user.groups_detailed)
+                        ? Object.values(user.groups_detailed)
+                            .map((entry) => { var _a; return (_a = entry === null || entry === void 0 ? void 0 : entry.permissions) !== null && _a !== void 0 ? _a : []; })
                             .flat()
                         : [];
-                    return permissions;
+                    const normalized = [...topLevel, ...groupPermissions].map((permission) => String(permission).split(".").pop());
+                    return Array.from(new Set(normalized));
                 }
             }
             catch (error) {
                 const err = error;
                 console.error("Unable to get permissions: ", err);
             }
+        });
+    }
+    /**
+     * Whether the current user holds the given permission codename.
+     * @param codename Canonical bare permission codename (e.g. "gateway-config-apply").
+     */
+    hasPermission(codename) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const permissions = (_a = (yield this.getPermissions())) !== null && _a !== void 0 ? _a : [];
+            return permissions.includes(codename);
+        });
+    }
+    /**
+     * Whether the current user holds ANY of the given permission codenames.
+     */
+    hasAnyPermission(codenames) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const permissions = new Set((_a = (yield this.getPermissions())) !== null && _a !== void 0 ? _a : []);
+            return codenames.some((codename) => permissions.has(codename));
+        });
+    }
+    /**
+     * Whether the current user holds ALL of the given permission codenames.
+     */
+    hasAllPermissions(codenames) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const permissions = new Set((_a = (yield this.getPermissions())) !== null && _a !== void 0 ? _a : []);
+            return codenames.every((codename) => permissions.has(codename));
         });
     }
     /**
@@ -603,6 +656,32 @@ exports.Auth = Auth;
 Auth.instance = null;
 Auth.initialized = false;
 Auth.CACHE_DURATION = 60 * 1000; // 1 minute
+/**
+ * Whether an HTTP status from a BUSINESS API call signals a broken session,
+ * i.e. the caller should run its refresh/re-login flow.
+ *
+ * Only 401 qualifies. A 403 on a business endpoint means the user is
+ * authenticated but lacks permission — redirecting to login would bounce the
+ * still-valid session straight back and loop. Surface 403 in-app instead
+ * (error state, NoPermission view, toast).
+ *
+ * Note: a 403 from the auth server's own token verify/refresh endpoints is a
+ * session-level signal (blacklisted token); {@link Auth.verifyToken} and
+ * {@link Auth.reviveToken} already handle that case internally.
+ *
+ * @param status HTTP status code from a business API response.
+ * @category Auth
+ */
+function isSessionError(status) {
+    return status === 401;
+}
+// Canonical permission catalog (bare codenames), generated from user-management and
+// distributed here the same way OpenAPI schemas are. Import the typed constants for
+// compile-time-checked permission checks: Auth.getInstance().hasPermission(PERMISSIONS[...]).
+var permissions_generated_1 = require("./permissions.generated");
+Object.defineProperty(exports, "PERMISSIONS", { enumerable: true, get: function () { return permissions_generated_1.PERMISSIONS; } });
+Object.defineProperty(exports, "PERMISSION_SET", { enumerable: true, get: function () { return permissions_generated_1.PERMISSION_SET; } });
+Object.defineProperty(exports, "PERMISSIONS_BY_MODULE", { enumerable: true, get: function () { return permissions_generated_1.PERMISSIONS_BY_MODULE; } });
 /**
  * Returns an error indicating the Auth config is unavailable.
  * @returns {Error}

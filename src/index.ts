@@ -297,6 +297,13 @@ class Auth {
 
   /**
    * Gets the current user from the API or cache.
+   *
+   * Only a 401 (session problem) triggers the login redirect. Any other
+   * failure — 403 from a fail-closed permission gate, 429, 5xx — resolves to
+   * `null` so callers can surface an in-app error/no-permission state instead
+   * of bouncing a logged-in user to the login page (which would loop straight
+   * back while the session is still valid).
+   *
    * @returns The user object or null if not found.
    * @throws {Error} If the Auth config is unavailable.
    */
@@ -327,8 +334,13 @@ class Auth {
           this.userTimestamp = Date.now();
           this.cachedUser = data;
           return data;
-        } else {
+        } else if (isSessionError(response.status)) {
           this.redirectToLoginPage();
+        } else {
+          // 403 (permission denied for an authenticated user), 429, 5xx, …:
+          // not a session problem — propagate to the caller instead of
+          // redirecting, so the app can render its own error/no-permission UI.
+          return null;
         }
       }
     } catch (error: unknown) {
@@ -347,17 +359,52 @@ class Auth {
     try {
       const user = await this.getUser();
       if (user) {
-        const permissions: string[] = user?.groups_detailed
-          ? Object.values(user?.groups_detailed)
-              .map((u: any) => u.permissions)
+        // Union the top-level `permissions` list (direct grants — and, once the backend ships
+        // it, the direct+group union) with every group permission from `groups_detailed`.
+        // Unioning both sources rather than preferring one is robust to rollout ordering: a
+        // frontend upgraded before the backend still sees group-derived permissions. Each entry
+        // is normalised to its bare codename (stripping any legacy "module." prefix) so callers
+        // compare against the one canonical identifier, then deduplicated.
+        const topLevel: string[] = Array.isArray(user.permissions) ? user.permissions : [];
+        const groupPermissions: string[] = user?.groups_detailed
+          ? Object.values(user.groups_detailed)
+              .map((entry: any) => entry?.permissions ?? [])
               .flat()
           : [];
-        return permissions;
+        const normalized = [...topLevel, ...groupPermissions].map(
+          (permission) => String(permission).split(".").pop() as string,
+        );
+        return Array.from(new Set(normalized));
       }
     } catch (error: unknown) {
       const err = error as ErrorHandler;
       console.error("Unable to get permissions: ", err);
     }
+  }
+
+  /**
+   * Whether the current user holds the given permission codename.
+   * @param codename Canonical bare permission codename (e.g. "gateway-config-apply").
+   */
+  async hasPermission(codename: string): Promise<boolean> {
+    const permissions = (await this.getPermissions()) ?? [];
+    return permissions.includes(codename);
+  }
+
+  /**
+   * Whether the current user holds ANY of the given permission codenames.
+   */
+  async hasAnyPermission(codenames: readonly string[]): Promise<boolean> {
+    const permissions = new Set((await this.getPermissions()) ?? []);
+    return codenames.some((codename) => permissions.has(codename));
+  }
+
+  /**
+   * Whether the current user holds ALL of the given permission codenames.
+   */
+  async hasAllPermissions(codenames: readonly string[]): Promise<boolean> {
+    const permissions = new Set((await this.getPermissions()) ?? []);
+    return codenames.every((codename) => permissions.has(codename));
   }
 
   /**
@@ -653,6 +700,36 @@ class Auth {
  * @category Auth
  */
 export { Auth };
+
+/**
+ * Whether an HTTP status from a BUSINESS API call signals a broken session,
+ * i.e. the caller should run its refresh/re-login flow.
+ *
+ * Only 401 qualifies. A 403 on a business endpoint means the user is
+ * authenticated but lacks permission — redirecting to login would bounce the
+ * still-valid session straight back and loop. Surface 403 in-app instead
+ * (error state, NoPermission view, toast).
+ *
+ * Note: a 403 from the auth server's own token verify/refresh endpoints is a
+ * session-level signal (blacklisted token); {@link Auth.verifyToken} and
+ * {@link Auth.reviveToken} already handle that case internally.
+ *
+ * @param status HTTP status code from a business API response.
+ * @category Auth
+ */
+export function isSessionError(status: number): boolean {
+  return status === 401;
+}
+
+// Canonical permission catalog (bare codenames), generated from user-management and
+// distributed here the same way OpenAPI schemas are. Import the typed constants for
+// compile-time-checked permission checks: Auth.getInstance().hasPermission(PERMISSIONS[...]).
+export {
+  PERMISSIONS,
+  PERMISSION_SET,
+  PERMISSIONS_BY_MODULE,
+  type Permission,
+} from "./permissions.generated";
 
 /**
  * Returns an error indicating the Auth config is unavailable.
