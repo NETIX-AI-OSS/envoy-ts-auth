@@ -3,6 +3,112 @@ import { ERROR_MESSAGES, REDIRECT_DESTINATION_URL } from "./conf/settings";
 import Cookies = require("js-cookie");
 
 /**
+ * Options for {@link fetchIdempotentWithRetry}.
+ * @internal
+ */
+type RetryOptions = {
+  /** Extra attempts after the first, default 2 (3 attempts total). */
+  maxRetries?: number;
+  /** Base delay (ms) for exponential backoff, default 250. */
+  baseDelayMs?: number;
+  /** Backoff/Retry-After cap (ms), default 2000. */
+  maxDelayMs?: number;
+  /** Injectable sleep, defaults to a `setTimeout`-based implementation. */
+  sleep?: (ms: number) => Promise<void>;
+};
+
+let defaultRetrySleep: (ms: number) => Promise<void> = (ms) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * @internal Test-only hook to swap out the default `setTimeout`-based sleep used by
+ * {@link fetchIdempotentWithRetry} when no `opts.sleep` is supplied, so tests don't have
+ * to wait out real backoff delays. Not part of the public API.
+ */
+export function __setDefaultRetrySleepForTests(
+  sleep: (ms: number) => Promise<void>,
+) {
+  defaultRetrySleep = sleep;
+}
+
+const RETRYABLE_STATUSES = new Set([429, 408]);
+
+function isRetryableStatus(status: number): boolean {
+  return RETRYABLE_STATUSES.has(status) || (status >= 500 && status <= 599);
+}
+
+function computeBackoffDelay(
+  attempt: number,
+  baseDelayMs: number,
+  maxDelayMs: number,
+): number {
+  const exponential = Math.min(maxDelayMs, baseDelayMs * 2 ** attempt);
+  return exponential * (0.5 + Math.random() * 0.5);
+}
+
+/**
+ * Parses a `Retry-After` header (seconds form only) into milliseconds.
+ * Returns null for a missing header or an HTTP-date form, so callers fall
+ * back to the computed backoff delay.
+ * @internal
+ */
+function parseRetryAfterMs(response: Response): number | null {
+  const header = response.headers?.get?.("Retry-After");
+  if (!header) return null;
+  const seconds = Number(header);
+  return Number.isFinite(seconds) ? seconds * 1000 : null;
+}
+
+/**
+ * Fetch wrapper with small, bounded, jittered-exponential-backoff retries for transient
+ * failures: network/connection errors, HTTP 429/408, and 5xx.
+ *
+ * Only call this for idempotent GET/HEAD/OPTIONS requests — never for POST/PUT/PATCH/DELETE,
+ * per the library's retry policy. Non-2xx statuses other than 429/408/5xx (e.g. 400/401/403/404)
+ * are deterministic failures and are returned immediately, unchanged, on the first attempt.
+ * A thrown `AbortError` is rethrown immediately without retrying.
+ *
+ * @internal
+ */
+async function fetchIdempotentWithRetry(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  opts?: RetryOptions,
+): Promise<Response> {
+  const maxRetries = opts?.maxRetries ?? 2;
+  const baseDelayMs = opts?.baseDelayMs ?? 250;
+  const maxDelayMs = opts?.maxDelayMs ?? 2000;
+  const sleep = opts?.sleep ?? defaultRetrySleep;
+
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await fetch(input, init);
+      if (response.ok || !isRetryableStatus(response.status)) {
+        return response;
+      }
+      if (attempt >= maxRetries) {
+        return response;
+      }
+      const retryAfterMs =
+        response.status === 429 ? parseRetryAfterMs(response) : null;
+      const delay =
+        retryAfterMs !== null
+          ? Math.min(retryAfterMs, maxDelayMs)
+          : computeBackoffDelay(attempt, baseDelayMs, maxDelayMs);
+      await sleep(delay);
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw error;
+      }
+      if (attempt >= maxRetries) {
+        throw error;
+      }
+      await sleep(computeBackoffDelay(attempt, baseDelayMs, maxDelayMs));
+    }
+  }
+}
+
+/**
  * Represents a key-value pair for storage operations (cookie or AsyncStorage).
  *
  * Used by {@link Auth.setKeyValue}.
@@ -318,7 +424,7 @@ class Auth {
     }
     if (!this.authConfig) throw AuthConfigUnavailableError();
     try {
-      const response = await fetch(
+      const response = await fetchIdempotentWithRetry(
         `${this.authConfig.AUTH_BASE_URL}/auth/me/`,
         {
           method: "GET",
