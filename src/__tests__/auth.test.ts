@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Auth, isSessionError, type AuthConfig } from '../index'
+import {
+  Auth,
+  isSessionError,
+  __setDefaultRetrySleepForTests,
+  type AuthConfig,
+} from '../index'
 
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: {
@@ -47,10 +52,17 @@ function stubLocation(url: string) {
 }
 
 describe('Auth', () => {
+  let retrySleep: ReturnType<typeof vi.fn>
+
   beforeEach(() => {
     Auth.reset()
     vi.resetAllMocks()
     vi.unstubAllGlobals()
+    // getUser()'s retry helper defaults to a real setTimeout-based sleep; swap in an
+    // instant-resolving spy so retry tests don't wait out real backoff delays, and so
+    // tests can assert on the delay the helper would have used.
+    retrySleep = vi.fn(async () => {})
+    __setDefaultRetrySleepForTests(retrySleep)
   })
 
   // ── Initialization ────────────────────────────────────────────────────────
@@ -386,9 +398,11 @@ describe('Auth', () => {
       expect(await auth.getUser()).toBeNull()
       expect(redirect).not.toHaveBeenCalled()
       expect(clearCookies).not.toHaveBeenCalled()
+      // 403 is a deterministic, non-retryable failure - only one attempt.
+      expect(global.fetch).toHaveBeenCalledTimes(1)
     })
 
-    it('propagates a 5xx without redirecting to login', async () => {
+    it('propagates a 5xx without redirecting to login, after exhausting retries', async () => {
       Auth.initialize(baseConfig)
       const auth = Auth.getInstance()
       vi.spyOn(auth, 'getToken').mockResolvedValue('valid-token')
@@ -397,6 +411,58 @@ describe('Auth', () => {
 
       expect(await auth.getUser()).toBeNull()
       expect(redirect).not.toHaveBeenCalled()
+      // 1 initial attempt + 2 retries (default cap) = 3 total.
+      expect(global.fetch).toHaveBeenCalledTimes(3)
+    })
+
+    it('retries a transient 500 then succeeds', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getToken').mockResolvedValue('valid-token')
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce({ ok: false, status: 500 })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 1, username: 'testuser' }) })
+
+      expect(await auth.getUser()).toEqual({ id: 1, username: 'testuser' })
+      expect(global.fetch).toHaveBeenCalledTimes(2)
+    })
+
+    it('gives up after the retry cap on repeated 5xx', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getToken').mockResolvedValue('valid-token')
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 })
+
+      expect(await auth.getUser()).toBeNull()
+      expect(global.fetch).toHaveBeenCalledTimes(3)
+    })
+
+    it('retries on 429 and respects Retry-After', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getToken').mockResolvedValue('valid-token')
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          headers: { get: (name: string) => (name === 'Retry-After' ? '1' : null) },
+        })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 1 }) })
+
+      expect(await auth.getUser()).toEqual({ id: 1 })
+      expect(global.fetch).toHaveBeenCalledTimes(2)
+      // Retry-After: 1 (second) -> 1000ms, bounded by the 2000ms cap.
+      expect(retrySleep).toHaveBeenCalledWith(1000)
+    })
+
+    it('does not retry a network throw with AbortError', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getToken').mockResolvedValue('valid-token')
+      global.fetch = vi.fn().mockRejectedValue(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+
+      expect(await auth.getUser()).toBeUndefined()
+      expect(global.fetch).toHaveBeenCalledTimes(1)
     })
 
     it('keeps the login redirect for a 401 (session problem)', async () => {
@@ -408,6 +474,8 @@ describe('Auth', () => {
 
       await auth.getUser()
       expect(redirect).toHaveBeenCalled()
+      // 401 is a deterministic, non-retryable failure - only one attempt.
+      expect(global.fetch).toHaveBeenCalledTimes(1)
     })
 
     it('resolves permission checks to false on 403 instead of redirecting', async () => {
@@ -487,6 +555,41 @@ describe('Auth', () => {
       expect(await auth.hasAnyPermission(['nope', 'tag-view'])).toBe(true)
       expect(await auth.hasAllPermissions(['tag-view', 'tag-delete'])).toBe(false)
       expect(await auth.hasAllPermissions(['tag-view', 'tag-edit'])).toBe(true)
+    })
+  })
+
+  // POST call sites (getToken's verify ping, reviveToken, verifyToken, login) must never
+  // auto-retry - only the idempotent GET in getUser() does.
+  describe('single-attempt POST call sites', () => {
+    it('login does not retry on a 503', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 })
+
+      await auth.login('user', 'pass')
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('reviveToken does not retry on a 503', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('my-refresh-token')
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 })
+
+      await auth.reviveToken()
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('verifyToken does not retry on a 503', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('stored-token')
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 })
+
+      await auth.verifyToken()
+      expect(global.fetch).toHaveBeenCalledTimes(1)
     })
   })
 
