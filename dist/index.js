@@ -13,10 +13,87 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PERMISSIONS_BY_MODULE = exports.PERMISSION_SET = exports.PERMISSIONS = exports.Auth = void 0;
+exports.__setDefaultRetrySleepForTests = __setDefaultRetrySleepForTests;
 exports.isSessionError = isSessionError;
 const async_storage_1 = __importDefault(require("@react-native-async-storage/async-storage"));
 const settings_1 = require("./conf/settings");
 const Cookies = require("js-cookie");
+let defaultRetrySleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * @internal Test-only hook to swap out the default `setTimeout`-based sleep used by
+ * {@link fetchIdempotentWithRetry} when no `opts.sleep` is supplied, so tests don't have
+ * to wait out real backoff delays. Not part of the public API.
+ */
+function __setDefaultRetrySleepForTests(sleep) {
+    defaultRetrySleep = sleep;
+}
+const RETRYABLE_STATUSES = new Set([429, 408]);
+function isRetryableStatus(status) {
+    return RETRYABLE_STATUSES.has(status) || (status >= 500 && status <= 599);
+}
+function computeBackoffDelay(attempt, baseDelayMs, maxDelayMs) {
+    const exponential = Math.min(maxDelayMs, baseDelayMs * 2 ** attempt);
+    return exponential * (0.5 + Math.random() * 0.5);
+}
+/**
+ * Parses a `Retry-After` header (seconds form only) into milliseconds.
+ * Returns null for a missing header or an HTTP-date form, so callers fall
+ * back to the computed backoff delay.
+ * @internal
+ */
+function parseRetryAfterMs(response) {
+    var _a, _b;
+    const header = (_b = (_a = response.headers) === null || _a === void 0 ? void 0 : _a.get) === null || _b === void 0 ? void 0 : _b.call(_a, "Retry-After");
+    if (!header)
+        return null;
+    const seconds = Number(header);
+    return Number.isFinite(seconds) ? seconds * 1000 : null;
+}
+/**
+ * Fetch wrapper with small, bounded, jittered-exponential-backoff retries for transient
+ * failures: network/connection errors, HTTP 429/408, and 5xx.
+ *
+ * Only call this for idempotent GET/HEAD/OPTIONS requests — never for POST/PUT/PATCH/DELETE,
+ * per the library's retry policy. Non-2xx statuses other than 429/408/5xx (e.g. 400/401/403/404)
+ * are deterministic failures and are returned immediately, unchanged, on the first attempt.
+ * A thrown `AbortError` is rethrown immediately without retrying.
+ *
+ * @internal
+ */
+function fetchIdempotentWithRetry(input, init, opts) {
+    return __awaiter(this, void 0, void 0, function* () {
+        var _a, _b, _c, _d;
+        const maxRetries = (_a = opts === null || opts === void 0 ? void 0 : opts.maxRetries) !== null && _a !== void 0 ? _a : 2;
+        const baseDelayMs = (_b = opts === null || opts === void 0 ? void 0 : opts.baseDelayMs) !== null && _b !== void 0 ? _b : 250;
+        const maxDelayMs = (_c = opts === null || opts === void 0 ? void 0 : opts.maxDelayMs) !== null && _c !== void 0 ? _c : 2000;
+        const sleep = (_d = opts === null || opts === void 0 ? void 0 : opts.sleep) !== null && _d !== void 0 ? _d : defaultRetrySleep;
+        for (let attempt = 0;; attempt++) {
+            try {
+                const response = yield fetch(input, init);
+                if (response.ok || !isRetryableStatus(response.status)) {
+                    return response;
+                }
+                if (attempt >= maxRetries) {
+                    return response;
+                }
+                const retryAfterMs = response.status === 429 ? parseRetryAfterMs(response) : null;
+                const delay = retryAfterMs !== null
+                    ? Math.min(retryAfterMs, maxDelayMs)
+                    : computeBackoffDelay(attempt, baseDelayMs, maxDelayMs);
+                yield sleep(delay);
+            }
+            catch (error) {
+                if (error instanceof Error && error.name === "AbortError") {
+                    throw error;
+                }
+                if (attempt >= maxRetries) {
+                    throw error;
+                }
+                yield sleep(computeBackoffDelay(attempt, baseDelayMs, maxDelayMs));
+            }
+        }
+    });
+}
 /**
  * Internal: Current authentication configuration.
  */
@@ -256,7 +333,7 @@ class Auth {
             if (!this.authConfig)
                 throw AuthConfigUnavailableError();
             try {
-                const response = yield fetch(`${this.authConfig.AUTH_BASE_URL}/auth/me/`, {
+                const response = yield fetchIdempotentWithRetry(`${this.authConfig.AUTH_BASE_URL}/auth/me/`, {
                     method: "GET",
                     headers: {
                         "Content-Type": "application/json",

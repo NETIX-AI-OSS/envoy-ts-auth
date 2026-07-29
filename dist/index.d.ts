@@ -1,4 +1,10 @@
 /**
+ * @internal Test-only hook to swap out the default `setTimeout`-based sleep used by
+ * {@link fetchIdempotentWithRetry} when no `opts.sleep` is supplied, so tests don't have
+ * to wait out real backoff delays. Not part of the public API.
+ */
+export declare function __setDefaultRetrySleepForTests(sleep: (ms: number) => Promise<void>): void;
+/**
  * Represents a key-value pair for storage operations (cookie or AsyncStorage).
  *
  * Used by {@link Auth.setKeyValue}.
