@@ -174,6 +174,36 @@ describe('Auth', () => {
       // fetch called only once; second call hits the in-memory cache
       expect(global.fetch).toHaveBeenCalledTimes(1)
     })
+
+    it('does not reject when the verify call fails at the network layer', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('stored-token')
+      vi.spyOn(auth, 'reviveToken').mockResolvedValue(undefined)
+      // Safari's wording for a failed fetch; callers reach getToken() from
+      // request interceptors, where a rejection becomes an unhandled app error.
+      global.fetch = vi.fn().mockRejectedValue(new TypeError('Load failed'))
+
+      await expect(auth.getToken()).resolves.toBe('stored-token')
+      expect(auth.reviveToken).toHaveBeenCalled()
+    })
+
+    it('does not cache the token when verification could not be performed', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('stored-token')
+      vi.spyOn(auth, 'reviveToken').mockResolvedValue(undefined)
+      global.fetch = vi.fn().mockRejectedValue(new TypeError('Load failed'))
+
+      await auth.getToken()
+      await auth.getToken()
+
+      // An unverified token must not populate the cache, so the second call
+      // retries the verify ping rather than trusting the first failure.
+      expect(global.fetch).toHaveBeenCalledTimes(2)
+    })
   })
 
   describe('reviveToken', () => {
