@@ -552,18 +552,30 @@ class Auth {
     const isPresent = await this.isKeyPresent("token");
     if (isPresent) {
       const token = await this.getKeyValue("token");
-      const response = await fetch(
-        `${this.authConfig.AUTH_BASE_URL}${this.authConfig.VERIFY_ENDPOINT}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+      // A network failure here (offline, DNS, CORS, aborted navigation) must not
+      // escape: callers reach getToken() from request interceptors, where a
+      // rejected promise surfaces as an unhandled app error — Safari reports it
+      // as `TypeError: Load failed`. Treat an unreachable verify endpoint the
+      // same as a non-200 and fall through to reviveToken(), exactly as
+      // getUser()/reviveToken() already do for their own fetches.
+      let response: Response | null = null;
+      try {
+        response = await fetch(
+          `${this.authConfig.AUTH_BASE_URL}${this.authConfig.VERIFY_ENDPOINT}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ token }),
           },
-          body: JSON.stringify({ token }),
-        },
-      );
-      if (response.status === 200) {
+        );
+      } catch (error: unknown) {
+        const err = error as ErrorHandler;
+        console.error("envoy-ts-auth-getToken verify error: ", err);
+      }
+      if (response?.status === 200) {
         this.cachedToken = token;
         this.tokenTimestamp = Date.now();
         return token;

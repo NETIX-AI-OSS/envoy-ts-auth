@@ -471,15 +471,28 @@ class Auth {
             const isPresent = yield this.isKeyPresent("token");
             if (isPresent) {
                 const token = yield this.getKeyValue("token");
-                const response = yield fetch(`${this.authConfig.AUTH_BASE_URL}${this.authConfig.VERIFY_ENDPOINT}`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ token }),
-                });
-                if (response.status === 200) {
+                // A network failure here (offline, DNS, CORS, aborted navigation) must not
+                // escape: callers reach getToken() from request interceptors, where a
+                // rejected promise surfaces as an unhandled app error — Safari reports it
+                // as `TypeError: Load failed`. Treat an unreachable verify endpoint the
+                // same as a non-200 and fall through to reviveToken(), exactly as
+                // getUser()/reviveToken() already do for their own fetches.
+                let response = null;
+                try {
+                    response = yield fetch(`${this.authConfig.AUTH_BASE_URL}${this.authConfig.VERIFY_ENDPOINT}`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ token }),
+                    });
+                }
+                catch (error) {
+                    const err = error;
+                    console.error("envoy-ts-auth-getToken verify error: ", err);
+                }
+                if ((response === null || response === void 0 ? void 0 : response.status) === 200) {
                     this.cachedToken = token;
                     this.tokenTimestamp = Date.now();
                     return token;
