@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Optional `LOGOUT_ENDPOINT` integration for best-effort access/refresh token
+  revocation before redirecting from logout or replacing an account session.
+
+### Security
+
+- Token verification and refresh failures now fail closed: stale access and
+  refresh credentials, cached users, and cached permissions are invalidated.
+- In-memory tokens are compared with persistent storage before reuse so a
+  logout or account change in another tab cannot retain the previous subject.
+- Successful login and token rotation invalidate user/permission caches.
+
 ## [1.4.13] — OSS Public Release Prep
 
 ### Added

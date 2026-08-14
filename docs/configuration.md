@@ -22,6 +22,8 @@
 - `NATIVE_PLATFORM`: use AsyncStorage when true
 - `ON_LOGIN`: callback override for login redirect behavior
 - `ON_LOGOUT`: callback override for logout redirect behavior
+- `LOGOUT_ENDPOINT`: auth API endpoint for best-effort server-side access and
+  refresh-token revocation (for example `/auth/logout/`)
 
 ## Recommended Defaults
 
@@ -30,6 +32,9 @@
 - Ensure `LOGIN_PAGE_URL` and `LAUNCHPAD_PAGE_URL` are absolute URLs.
 - Keep `BASE_DOMAIN` and `CURRENT_APP_DOMAIN` as hostnames only, without protocol or path.
 - Redirect targets are limited to `BASE_DOMAIN` and single-level subdomains such as `app.example.com`.
+- Configure `LOGOUT_ENDPOINT` only after the backend accepts the current access
+  token as `Authorization: Bearer ...` and an optional JSON `{ "refresh": "..." }`
+  body. Deploy that backend support before enabling the client setting.
 
 ## Minimal Example
 
@@ -47,5 +52,6 @@ const config = {
   REFRESH_ENDPOINT: "/auth/token/refresh/",
   VERIFY_ENDPOINT: "/auth/token/verify/",
   TOKEN_ENDPOINT: "/auth/token/",
+  LOGOUT_ENDPOINT: "/auth/logout/",
 };
 ```

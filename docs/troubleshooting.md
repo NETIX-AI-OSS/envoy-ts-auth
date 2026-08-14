@@ -16,6 +16,15 @@
 - Validate `AUTH_BASE_URL` and endpoint paths.
 - Confirm token/refresh formats expected by backend.
 - Check CORS and cookie settings for browser usage.
+- Verification/refresh failures intentionally remove local credentials. This
+  fail-closed behavior requires a new login after auth-service outages.
+
+## Logout does not revoke the backend token
+
+- Set `LOGOUT_ENDPOINT` (normally `/auth/logout/`) only after deploying backend
+  access-token and refresh-token revocation support.
+- Confirm the endpoint accepts the bearer access token and optional `refresh`
+  JSON field. Local credentials are still removed if this request fails.
 
 ## Cookies not persisted in browser
 

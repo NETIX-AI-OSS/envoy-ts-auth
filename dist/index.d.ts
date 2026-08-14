@@ -48,6 +48,8 @@ export type AuthConfig = {
     VERIFY_ENDPOINT: string;
     /** Endpoint for obtaining tokens */
     TOKEN_ENDPOINT: string;
+    /** Optional endpoint for revoking the server-side session during logout */
+    LOGOUT_ENDPOINT?: string;
     /** Set to true if running on a native platform */
     NATIVE_PLATFORM?: boolean;
     /** Callback for login event */
@@ -103,6 +105,20 @@ declare class Auth {
      */
     static reset(): void;
     private get authConfig();
+    /**
+     * Drops all in-memory authentication state.
+     *
+     * Token changes must also invalidate the cached user because permissions and
+     * organization membership belong to the token subject that populated it.
+     */
+    private clearSessionCache;
+    /**
+     * Removes only the access token while retaining the refresh token for a
+     * single refresh attempt.
+     */
+    private clearAccessToken;
+    /** Best-effort server revocation; local invalidation never depends on it. */
+    private revokeServerSession;
     /**
      * Returns all cookies as an object. Not available on native platforms.
      * @returns Object of cookie key-value pairs or message if unavailable.
@@ -207,9 +223,10 @@ declare class Auth {
     } | {
         status: number;
         message?: undefined;
-    } | undefined>;
+    }>;
     /**
-     * Logs out the user by clearing cookies/storage and redirecting to login.
+     * Logs out the user by optionally revoking the server-side session, clearing
+     * local storage, and redirecting to login.
      * @throws {Error} If the Auth config is unavailable.
      */
     logout(): Promise<void>;

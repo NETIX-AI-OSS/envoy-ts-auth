@@ -1,6 +1,6 @@
 [**envoy-ts-auth**](../README.md)
 
----
+***
 
 [envoy-ts-auth](../README.md) / AuthConfig
 
@@ -8,117 +8,127 @@
 
 > **AuthConfig** = `object`
 
-Defined in: [src/index.ts:44](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L44)
+Defined in: [src/index.ts:149](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L149)
 
 Configuration object for authentication.
 
 ## Properties
 
-### AUTH_BASE_URL
+### AUTH\_BASE\_URL
 
-> **AUTH_BASE_URL**: `string`
+> **AUTH\_BASE\_URL**: `string`
 
-Defined in: [src/index.ts:60](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L60)
+Defined in: [src/index.ts:165](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L165)
 
 Base URL for authentication API
 
----
+***
 
-### BASE_DOMAIN
+### BASE\_DOMAIN
 
-> **BASE_DOMAIN**: `string`
+> **BASE\_DOMAIN**: `string`
 
-Defined in: [src/index.ts:54](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L54)
+Defined in: [src/index.ts:159](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L159)
 
 Base hostname allowed for redirects
 
----
+***
 
-### COOKIE_DOMAIN
+### COOKIE\_DOMAIN
 
-> **COOKIE_DOMAIN**: `string`
+> **COOKIE\_DOMAIN**: `string`
 
-Defined in: [src/index.ts:52](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L52)
+Defined in: [src/index.ts:157](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L157)
 
 Domain for the cookie
 
----
+***
 
-### COOKIE_REFRESH_TTL
+### COOKIE\_REFRESH\_TTL
 
-> **COOKIE_REFRESH_TTL**: `string`
+> **COOKIE\_REFRESH\_TTL**: `string`
 
-Defined in: [src/index.ts:48](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L48)
+Defined in: [src/index.ts:153](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L153)
 
 Refresh token cookie time-to-live (in seconds)
 
----
+***
 
-### COOKIE_SECURE
+### COOKIE\_SECURE
 
-> **COOKIE_SECURE**: `boolean`
+> **COOKIE\_SECURE**: `boolean`
 
-Defined in: [src/index.ts:50](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L50)
+Defined in: [src/index.ts:155](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L155)
 
 Whether the cookie is secure
 
----
+***
 
-### COOKIE_TOKEN_TTL
+### COOKIE\_TOKEN\_TTL
 
-> **COOKIE_TOKEN_TTL**: `string`
+> **COOKIE\_TOKEN\_TTL**: `string`
 
-Defined in: [src/index.ts:46](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L46)
+Defined in: [src/index.ts:151](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L151)
 
 Token cookie time-to-live (in seconds)
 
----
+***
 
-### CURRENT_APP_DOMAIN
+### CURRENT\_APP\_DOMAIN
 
-> **CURRENT_APP_DOMAIN**: `string`
+> **CURRENT\_APP\_DOMAIN**: `string`
 
-Defined in: [src/index.ts:56](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L56)
+Defined in: [src/index.ts:161](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L161)
 
 Current app hostname used when preserving redirects
 
----
+***
 
-### LAUNCHPAD_PAGE_URL
+### LAUNCHPAD\_PAGE\_URL
 
-> **LAUNCHPAD_PAGE_URL**: `string`
+> **LAUNCHPAD\_PAGE\_URL**: `string`
 
-Defined in: [src/index.ts:62](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L62)
+Defined in: [src/index.ts:167](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L167)
 
 URL for the launchpad page
 
----
+***
 
-### LOGIN_PAGE_URL
+### LOGIN\_PAGE\_URL
 
-> **LOGIN_PAGE_URL**: `string`
+> **LOGIN\_PAGE\_URL**: `string`
 
-Defined in: [src/index.ts:58](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L58)
+Defined in: [src/index.ts:163](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L163)
 
 URL for the login page
 
----
+***
 
-### NATIVE_PLATFORM?
+### LOGOUT\_ENDPOINT?
 
-> `optional` **NATIVE_PLATFORM?**: `boolean`
+> `optional` **LOGOUT\_ENDPOINT?**: `string`
 
-Defined in: [src/index.ts:70](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L70)
+Defined in: [src/index.ts:175](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L175)
+
+Optional endpoint for revoking the server-side session during logout
+
+***
+
+### NATIVE\_PLATFORM?
+
+> `optional` **NATIVE\_PLATFORM?**: `boolean`
+
+Defined in: [src/index.ts:177](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L177)
 
 Set to true if running on a native platform
 
----
+***
 
-### ON_LOGIN?
+### ON\_LOGIN?
 
-> `optional` **ON_LOGIN?**: () => `void`
+> `optional` **ON\_LOGIN?**: () => `void`
 
-Defined in: [src/index.ts:72](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L72)
+Defined in: [src/index.ts:179](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L179)
 
 Callback for login event
 
@@ -126,13 +136,13 @@ Callback for login event
 
 `void`
 
----
+***
 
-### ON_LOGOUT?
+### ON\_LOGOUT?
 
-> `optional` **ON_LOGOUT?**: () => `void`
+> `optional` **ON\_LOGOUT?**: () => `void`
 
-Defined in: [src/index.ts:74](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L74)
+Defined in: [src/index.ts:181](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L181)
 
 Callback for logout event
 
@@ -140,32 +150,32 @@ Callback for logout event
 
 `void`
 
----
+***
 
-### REFRESH_ENDPOINT
+### REFRESH\_ENDPOINT
 
-> **REFRESH_ENDPOINT**: `string`
+> **REFRESH\_ENDPOINT**: `string`
 
-Defined in: [src/index.ts:64](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L64)
+Defined in: [src/index.ts:169](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L169)
 
 Endpoint for refreshing tokens
 
----
+***
 
-### TOKEN_ENDPOINT
+### TOKEN\_ENDPOINT
 
-> **TOKEN_ENDPOINT**: `string`
+> **TOKEN\_ENDPOINT**: `string`
 
-Defined in: [src/index.ts:68](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L68)
+Defined in: [src/index.ts:173](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L173)
 
 Endpoint for obtaining tokens
 
----
+***
 
-### VERIFY_ENDPOINT
+### VERIFY\_ENDPOINT
 
-> **VERIFY_ENDPOINT**: `string`
+> **VERIFY\_ENDPOINT**: `string`
 
-Defined in: [src/index.ts:66](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/13daa3a28e0ee8b021942735c788ff2260a747a2/src/index.ts#L66)
+Defined in: [src/index.ts:171](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L171)
 
 Endpoint for verifying tokens
