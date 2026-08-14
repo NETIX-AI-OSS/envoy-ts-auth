@@ -8,6 +8,7 @@ exports.PERMISSIONS = [
     "adhoc-inspection-cancel",
     "adhoc-inspection-edit",
     "adhoc-inspection-view",
+    "ai-assistant-view",
     "ai-health-view",
     "ai-report-admin",
     "ai-report-configure",
@@ -302,6 +303,9 @@ exports.PERMISSIONS = [
 ];
 exports.PERMISSION_SET = new Set(exports.PERMISSIONS);
 exports.PERMISSIONS_BY_MODULE = {
+    "AI Assistant": [
+        "ai-assistant-view"
+    ],
     "AI Reports": [
         "ai-health-view",
         "ai-report-admin",

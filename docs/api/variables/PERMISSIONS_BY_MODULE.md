@@ -8,4 +8,4 @@
 
 > `const` **PERMISSIONS\_BY\_MODULE**: `Readonly`\<`Record`\<`string`, readonly [`Permission`](../type-aliases/Permission.md)[]\>\>
 
-Defined in: [src/permissions.generated.ts:306](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/permissions.generated.ts#L306)
+Defined in: [src/permissions.generated.ts:307](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/126d74e1e492be0b890b72d626523f8dcb8303ab/src/permissions.generated.ts#L307)
