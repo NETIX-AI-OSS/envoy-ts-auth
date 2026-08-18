@@ -58,9 +58,7 @@ describe('Auth', () => {
     Auth.reset()
     vi.resetAllMocks()
     vi.unstubAllGlobals()
-    // getUser()'s retry helper defaults to a real setTimeout-based sleep; swap in an
-    // instant-resolving spy so retry tests don't wait out real backoff delays, and so
-    // tests can assert on the delay the helper would have used.
+    // Swap real setTimeout-based retry sleep for an instant spy in tests.
     retrySleep = vi.fn(async () => {})
     __setDefaultRetrySleepForTests(retrySleep)
   })
@@ -199,8 +197,7 @@ describe('Auth', () => {
         .mockResolvedValueOnce('stored-refresh')
       vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
       const clearCookies = vi.spyOn(auth, 'clearCookies')
-      // Safari's wording for a failed fetch; callers reach getToken() from
-      // request interceptors, where a rejection becomes an unhandled app error.
+      // Safari's failed-fetch wording; a rejection here becomes unhandled.
       global.fetch = vi.fn().mockRejectedValue(new TypeError('Load failed'))
 
       await expect(auth.getToken()).resolves.toBeNull()
@@ -742,8 +739,7 @@ describe('Auth', () => {
     })
   })
 
-  // POST call sites (getToken's verify ping, reviveToken, verifyToken, login) must never
-  // auto-retry - only the idempotent GET in getUser() does.
+  // POST call sites must never auto-retry; only the idempotent GET does.
   describe('single-attempt POST call sites', () => {
     it('login does not retry on a 503', async () => {
       Auth.initialize(baseConfig)
