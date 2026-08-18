@@ -485,8 +485,7 @@ class Auth {
       this.userTimestamp &&
       currentTime - this.userTimestamp < Auth.CACHE_DURATION
     ) {
-      // Confirm that shared storage still belongs to the same session before
-      // returning subject-specific cached profile or permission data.
+      // Confirm cache still belongs to this session before returning it.
       tokenForRequest = await this.getToken();
       if (tokenForRequest && this.cachedUser) {
         return this.cachedUser;
@@ -519,9 +518,7 @@ class Auth {
           await this.clearCookies();
           this.redirectToLoginPage();
         } else {
-          // 403 (permission denied for an authenticated user), 429, 5xx, …:
-          // not a session problem — propagate to the caller instead of
-          // redirecting, so the app can render its own error/no-permission UI.
+          // Not a session error (403/429/5xx): let caller render its own UI.
           return null;
         }
       }
@@ -541,12 +538,7 @@ class Auth {
     try {
       const user = await this.getUser();
       if (user) {
-        // Union the top-level `permissions` list (direct grants — and, once the backend ships
-        // it, the direct+group union) with every group permission from `groups_detailed`.
-        // Unioning both sources rather than preferring one is robust to rollout ordering: a
-        // frontend upgraded before the backend still sees group-derived permissions. Each entry
-        // is normalised to its bare codename (stripping any legacy "module." prefix) so callers
-        // compare against the one canonical identifier, then deduplicated.
+        // Union `permissions` + `groups_detailed`, normalize, dedupe codenames.
         const topLevel: string[] = Array.isArray(user.permissions) ? user.permissions : [];
         const groupPermissions: string[] = user?.groups_detailed
           ? Object.values(user.groups_detailed)
@@ -622,8 +614,7 @@ class Auth {
       this.tokenTimestamp &&
       currentTime - this.tokenTimestamp < Auth.CACHE_DURATION
     ) {
-      // Cookies can be replaced by another login app or removed in another
-      // tab. Never let the in-memory cache outlive that account/session change.
+      // Cookies can change in another tab; never let cache outlive that.
       const storedToken = await this.getKeyValue("token");
       if (storedToken === this.cachedToken) {
         return this.cachedToken;
@@ -690,8 +681,7 @@ class Auth {
         };
       }
       try {
-        // The access token that led here is absent or untrusted. Remove it
-        // before the network call so concurrent consumers cannot reuse it.
+        // Token is untrusted; clear it before the call so it can't be reused.
         await this.clearAccessToken();
         const response = await fetch(
           `${this.authConfig.AUTH_BASE_URL}${this.authConfig.REFRESH_ENDPOINT}`,
@@ -851,8 +841,7 @@ class Auth {
     } catch (error: unknown) {
       console.error("envoy-ts-auth-logout storage error: ", error);
     }
-    // Local credentials are removed before the network request so a slow or
-    // unavailable auth service cannot keep the browser authenticated.
+    // Clear local creds first; a slow auth service can't stay logged in.
     await this.clearCookies();
     await this.revokeServerSession(accessToken, refreshToken);
     this.redirectToLoginPage();
@@ -887,8 +876,7 @@ class Auth {
             return false;
           }
           if (data && data.access) {
-            // A successful login can change the account in the same runtime.
-            // Drop the old subject's token and user caches before persisting it.
+            // Login can change accounts; drop old subject's caches first.
             const previousAccessToken = await this.getKeyValue("token");
             const previousRefreshToken = await this.getKeyValue("refresh");
             await this.clearCookies();
@@ -980,9 +968,7 @@ export function isSessionError(status: number): boolean {
   return status === 401;
 }
 
-// Canonical permission catalog (bare codenames), generated from user-management and
-// distributed here the same way OpenAPI schemas are. Import the typed constants for
-// compile-time-checked permission checks: Auth.getInstance().hasPermission(PERMISSIONS[...]).
+// Canonical permission catalog, generated from user-management.
 export {
   PERMISSIONS,
   PERMISSION_SET,
