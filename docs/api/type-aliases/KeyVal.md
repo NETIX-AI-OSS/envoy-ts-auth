@@ -8,11 +8,9 @@
 
 > **KeyVal** = `object`
 
-Defined in: [src/index.ts:121](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L121)
+Defined in: [src/index.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/bb36c85c77ff6e4deb6c43324d024053b8dfc765/src/index.ts#L105)
 
-Represents a key-value pair for storage operations (cookie or AsyncStorage).
-
-Used by [Auth.setKeyValue](../classes/Auth.md#setkeyvalue).
+Key-value pair for storage operations (cookie or AsyncStorage), used by [Auth.setKeyValue](../classes/Auth.md#setkeyvalue).
 
 ## Properties
 
@@ -20,9 +18,7 @@ Used by [Auth.setKeyValue](../classes/Auth.md#setkeyvalue).
 
 > **key**: `string`
 
-Defined in: [src/index.ts:121](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L121)
-
-The key to set in storage.
+Defined in: [src/index.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/bb36c85c77ff6e4deb6c43324d024053b8dfc765/src/index.ts#L105)
 
 ***
 
@@ -30,9 +26,7 @@ The key to set in storage.
 
 > `optional` **maxAge?**: `string`
 
-Defined in: [src/index.ts:121](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L121)
-
-Optional max age (in seconds) for the key (used for cookies).
+Defined in: [src/index.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/bb36c85c77ff6e4deb6c43324d024053b8dfc765/src/index.ts#L105)
 
 ***
 
@@ -40,6 +34,4 @@ Optional max age (in seconds) for the key (used for cookies).
 
 > **value**: `string`
 
-Defined in: [src/index.ts:121](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/b0e2e32afa294a56ed8c22617a0ed08cbd35ef3f/src/index.ts#L121)
-
-The value to store.
+Defined in: [src/index.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/bb36c85c77ff6e4deb6c43324d024053b8dfc765/src/index.ts#L105)

@@ -21,9 +21,8 @@ let defaultRetrySleep: (ms: number) => Promise<void> = (ms) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * @internal Test-only hook to swap out the default `setTimeout`-based sleep used by
- * {@link fetchIdempotentWithRetry} when no `opts.sleep` is supplied, so tests don't have
- * to wait out real backoff delays. Not part of the public API.
+ * Test-only hook that swaps the default `setTimeout`-based sleep used by {@link fetchIdempotentWithRetry}, so tests skip real backoff delays.
+ * @internal
  */
 export function __setDefaultRetrySleepForTests(
   sleep: (ms: number) => Promise<void>,
@@ -47,9 +46,7 @@ function computeBackoffDelay(
 }
 
 /**
- * Parses a `Retry-After` header (seconds form only) into milliseconds.
- * Returns null for a missing header or an HTTP-date form, so callers fall
- * back to the computed backoff delay.
+ * Parses a `Retry-After` header (seconds form only) into milliseconds, or null so callers fall back to the computed backoff delay.
  * @internal
  */
 function parseRetryAfterMs(response: Response): number | null {
@@ -60,14 +57,7 @@ function parseRetryAfterMs(response: Response): number | null {
 }
 
 /**
- * Fetch wrapper with small, bounded, jittered-exponential-backoff retries for transient
- * failures: network/connection errors, HTTP 429/408, and 5xx.
- *
- * Only call this for idempotent GET/HEAD/OPTIONS requests — never for POST/PUT/PATCH/DELETE,
- * per the library's retry policy. Non-2xx statuses other than 429/408/5xx (e.g. 400/401/403/404)
- * are deterministic failures and are returned immediately, unchanged, on the first attempt.
- * A thrown `AbortError` is rethrown immediately without retrying.
- *
+ * Fetch wrapper with jittered-exponential-backoff retries for transient failures — only call it for idempotent GET/HEAD/OPTIONS requests, never POST/PUT/PATCH/DELETE.
  * @internal
  */
 async function fetchIdempotentWithRetry(
@@ -109,30 +99,12 @@ async function fetchIdempotentWithRetry(
 }
 
 /**
- * Represents a key-value pair for storage operations (cookie or AsyncStorage).
- *
- * Used by {@link Auth.setKeyValue}.
- *
- * @property key - The key to set in storage.
- * @property value - The value to store.
- * @property [maxAge] - Optional max age (in seconds) for the key (used for cookies).
+ * Key-value pair for storage operations (cookie or AsyncStorage), used by {@link Auth.setKeyValue}.
  * @category Types
  */
 export type KeyVal = { key: string; value: string; maxAge?: string };
 
-/**
- * Error handler type for API responses.
- * @internal
- * @category Types
- */
-/**
- * Represents the structure of an error object returned from an API response.
- *
- * @property response - The HTTP response containing error details.
- * @property response.status - The HTTP status code of the error response.
- * @property response.data - The data payload containing error messages.
- * @property response.data.messages - An array of error message strings describing the error(s).
- */
+/** Shape of an error object returned from an API response. */
 type ErrorHandler = {
   response: {
     status: number;
@@ -182,23 +154,7 @@ export type AuthConfig = {
 };
 
 /**
- * Internal: Current authentication configuration.
- */
-
-/**
- * Singleton class for authentication and authorization utilities.
- *
- * Provides methods for token management, user info, login/logout, and redirection.
- *
- * Usage:
- *   1. Call {@link Auth.initialize} once with your config.
- *   2. Use {@link Auth.getInstance} to access all methods.
- *
- * @example
- *   Auth.initialize(config);
- *   const auth = Auth.getInstance();
- *   const user = await auth.getUser();
- *
+ * Singleton class for authentication and authorization utilities — call {@link Auth.initialize} once, then {@link Auth.getInstance} for all methods.
  * @category Auth
  */
 class Auth {
@@ -216,8 +172,7 @@ class Auth {
   }
 
   /**
-   * Initializes the Auth singleton with the given configuration.
-   * Must be called before using any Auth methods.
+   * Initializes the Auth singleton with the given configuration; must be called before any other Auth method.
    * @param config The authentication configuration object.
    * @throws If already initialized or config is invalid.
    */
@@ -242,10 +197,7 @@ class Auth {
     return Auth.instance;
   }
 
-  /**
-   * Resets the Auth singleton, allowing re-initialization.
-   * Intended for use in tests and environments that require reconfiguration.
-   */
+  /** Resets the Auth singleton so it can be re-initialized (for tests/reconfiguration). */
   static reset() {
     Auth.instance = null;
     Auth.initialized = false;
@@ -255,12 +207,7 @@ class Auth {
     return this.config;
   }
 
-  /**
-   * Drops all in-memory authentication state.
-   *
-   * Token changes must also invalidate the cached user because permissions and
-   * organization membership belong to the token subject that populated it.
-   */
+  /** Drops all in-memory state; token changes must also drop the cached user, since permissions/org membership belong to the token subject that populated it. */
   private clearSessionCache() {
     this.cachedToken = null;
     this.cachedUser = null;
@@ -268,10 +215,7 @@ class Auth {
     this.userTimestamp = null;
   }
 
-  /**
-   * Removes only the access token while retaining the refresh token for a
-   * single refresh attempt.
-   */
+  /** Removes only the access token, retaining the refresh token for a single refresh attempt. */
   private async clearAccessToken() {
     this.clearSessionCache();
     if (this.authConfig.NATIVE_PLATFORM) {
@@ -466,14 +410,7 @@ class Auth {
   }
 
   /**
-   * Gets the current user from the API or cache.
-   *
-   * Only a 401 (session problem) triggers the login redirect. Any other
-   * failure — 403 from a fail-closed permission gate, 429, 5xx — resolves to
-   * `null` so callers can surface an in-app error/no-permission state instead
-   * of bouncing a logged-in user to the login page (which would loop straight
-   * back while the session is still valid).
-   *
+   * Gets the current user from the API or cache; only a 401 triggers the login redirect, other failures (403/429/5xx) resolve to `null`.
    * @returns The user object or null if not found.
    * @throws {Error} If the Auth config is unavailable.
    */
@@ -827,8 +764,7 @@ class Auth {
   }
 
   /**
-   * Logs out the user by optionally revoking the server-side session, clearing
-   * local storage, and redirecting to login.
+   * Logs out the user: clears local storage, best-effort revokes the server session, then redirects to login.
    * @throws {Error} If the Auth config is unavailable.
    */
   async logout() {
@@ -910,13 +846,7 @@ class Auth {
   }
 
   /**
-   * Checks if the user is logged in (token present and valid).
-   *
-   * **Side-effect**: On web platforms, if a valid token is found, the user is
-   * automatically redirected to the `continue` query-param URL or the configured
-   * `LAUNCHPAD_PAGE_URL`. Designed for use on login/guard pages where an already-
-   * authenticated user should be bounced away immediately.
-   *
+   * Checks if logged in; on web, a valid token also triggers a redirect to `continue` or `LAUNCHPAD_PAGE_URL` (side-effect, for login/guard pages).
    * @returns True if logged in, false otherwise.
    * @throws {Error} If unable to check login status.
    */
@@ -942,25 +872,10 @@ class Auth {
   }
 }
 
-/**
- * Exports the Auth class for authentication utilities.
- * @category Auth
- */
 export { Auth };
 
 /**
- * Whether an HTTP status from a BUSINESS API call signals a broken session,
- * i.e. the caller should run its refresh/re-login flow.
- *
- * Only 401 qualifies. A 403 on a business endpoint means the user is
- * authenticated but lacks permission — redirecting to login would bounce the
- * still-valid session straight back and loop. Surface 403 in-app instead
- * (error state, NoPermission view, toast).
- *
- * Note: a 403 from the auth server's own token verify/refresh endpoints is a
- * session-level signal (blacklisted token); {@link Auth.verifyToken} and
- * {@link Auth.reviveToken} already handle that case internally.
- *
+ * Whether an HTTP status from a business API call signals a broken session — only 401 qualifies, not 403 (permission-denied, still authenticated).
  * @param status HTTP status code from a business API response.
  * @category Auth
  */
@@ -976,21 +891,11 @@ export {
   type Permission,
 } from "./permissions.generated";
 
-/**
- * Returns an error indicating the Auth config is unavailable.
- * @returns {Error}
- * @internal
- */
 function AuthConfigUnavailableError() {
   return new Error(ERROR_MESSAGES.CONFIG_UNAVAILABLE);
 }
 
-/**
- * Validates the AuthConfig object for required properties.
- * @param config The AuthConfig object to validate.
- * @throws {Error} If any required property is missing.
- * @internal
- */
+/** Validates required AuthConfig fields and BASE_DOMAIN/CURRENT_APP_DOMAIN format; throws if invalid. */
 function validateAuthConfig(config: AuthConfig) {
   const requiredProperties = [
     "COOKIE_TOKEN_TTL",

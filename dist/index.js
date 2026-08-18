@@ -20,9 +20,8 @@ const settings_1 = require("./conf/settings");
 const Cookies = require("js-cookie");
 let defaultRetrySleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 /**
- * @internal Test-only hook to swap out the default `setTimeout`-based sleep used by
- * {@link fetchIdempotentWithRetry} when no `opts.sleep` is supplied, so tests don't have
- * to wait out real backoff delays. Not part of the public API.
+ * Test-only hook that swaps the default `setTimeout`-based sleep used by {@link fetchIdempotentWithRetry}, so tests skip real backoff delays.
+ * @internal
  */
 function __setDefaultRetrySleepForTests(sleep) {
     defaultRetrySleep = sleep;
@@ -36,9 +35,7 @@ function computeBackoffDelay(attempt, baseDelayMs, maxDelayMs) {
     return exponential * (0.5 + Math.random() * 0.5);
 }
 /**
- * Parses a `Retry-After` header (seconds form only) into milliseconds.
- * Returns null for a missing header or an HTTP-date form, so callers fall
- * back to the computed backoff delay.
+ * Parses a `Retry-After` header (seconds form only) into milliseconds, or null so callers fall back to the computed backoff delay.
  * @internal
  */
 function parseRetryAfterMs(response) {
@@ -50,14 +47,7 @@ function parseRetryAfterMs(response) {
     return Number.isFinite(seconds) ? seconds * 1000 : null;
 }
 /**
- * Fetch wrapper with small, bounded, jittered-exponential-backoff retries for transient
- * failures: network/connection errors, HTTP 429/408, and 5xx.
- *
- * Only call this for idempotent GET/HEAD/OPTIONS requests — never for POST/PUT/PATCH/DELETE,
- * per the library's retry policy. Non-2xx statuses other than 429/408/5xx (e.g. 400/401/403/404)
- * are deterministic failures and are returned immediately, unchanged, on the first attempt.
- * A thrown `AbortError` is rethrown immediately without retrying.
- *
+ * Fetch wrapper with jittered-exponential-backoff retries for transient failures — only call it for idempotent GET/HEAD/OPTIONS requests, never POST/PUT/PATCH/DELETE.
  * @internal
  */
 function fetchIdempotentWithRetry(input, init, opts) {
@@ -95,22 +85,7 @@ function fetchIdempotentWithRetry(input, init, opts) {
     });
 }
 /**
- * Internal: Current authentication configuration.
- */
-/**
- * Singleton class for authentication and authorization utilities.
- *
- * Provides methods for token management, user info, login/logout, and redirection.
- *
- * Usage:
- *   1. Call {@link Auth.initialize} once with your config.
- *   2. Use {@link Auth.getInstance} to access all methods.
- *
- * @example
- *   Auth.initialize(config);
- *   const auth = Auth.getInstance();
- *   const user = await auth.getUser();
- *
+ * Singleton class for authentication and authorization utilities — call {@link Auth.initialize} once, then {@link Auth.getInstance} for all methods.
  * @category Auth
  */
 class Auth {
@@ -122,8 +97,7 @@ class Auth {
         this.config = config;
     }
     /**
-     * Initializes the Auth singleton with the given configuration.
-     * Must be called before using any Auth methods.
+     * Initializes the Auth singleton with the given configuration; must be called before any other Auth method.
      * @param config The authentication configuration object.
      * @throws If already initialized or config is invalid.
      */
@@ -146,10 +120,7 @@ class Auth {
         }
         return Auth.instance;
     }
-    /**
-     * Resets the Auth singleton, allowing re-initialization.
-     * Intended for use in tests and environments that require reconfiguration.
-     */
+    /** Resets the Auth singleton so it can be re-initialized (for tests/reconfiguration). */
     static reset() {
         Auth.instance = null;
         Auth.initialized = false;
@@ -157,22 +128,14 @@ class Auth {
     get authConfig() {
         return this.config;
     }
-    /**
-     * Drops all in-memory authentication state.
-     *
-     * Token changes must also invalidate the cached user because permissions and
-     * organization membership belong to the token subject that populated it.
-     */
+    /** Drops all in-memory state; token changes must also drop the cached user, since permissions/org membership belong to the token subject that populated it. */
     clearSessionCache() {
         this.cachedToken = null;
         this.cachedUser = null;
         this.tokenTimestamp = null;
         this.userTimestamp = null;
     }
-    /**
-     * Removes only the access token while retaining the refresh token for a
-     * single refresh attempt.
-     */
+    /** Removes only the access token, retaining the refresh token for a single refresh attempt. */
     clearAccessToken() {
         return __awaiter(this, void 0, void 0, function* () {
             this.clearSessionCache();
@@ -368,14 +331,7 @@ class Auth {
             location.replace(sourceUrl);
     }
     /**
-     * Gets the current user from the API or cache.
-     *
-     * Only a 401 (session problem) triggers the login redirect. Any other
-     * failure — 403 from a fail-closed permission gate, 429, 5xx — resolves to
-     * `null` so callers can surface an in-app error/no-permission state instead
-     * of bouncing a logged-in user to the login page (which would loop straight
-     * back while the session is still valid).
-     *
+     * Gets the current user from the API or cache; only a 401 triggers the login redirect, other failures (403/429/5xx) resolve to `null`.
      * @returns The user object or null if not found.
      * @throws {Error} If the Auth config is unavailable.
      */
@@ -386,8 +342,7 @@ class Auth {
             if (this.cachedUser &&
                 this.userTimestamp &&
                 currentTime - this.userTimestamp < Auth.CACHE_DURATION) {
-                // Confirm that shared storage still belongs to the same session before
-                // returning subject-specific cached profile or permission data.
+                // Confirm cache still belongs to this session before returning it.
                 tokenForRequest = yield this.getToken();
                 if (tokenForRequest && this.cachedUser) {
                     return this.cachedUser;
@@ -421,9 +376,7 @@ class Auth {
                         this.redirectToLoginPage();
                     }
                     else {
-                        // 403 (permission denied for an authenticated user), 429, 5xx, …:
-                        // not a session problem — propagate to the caller instead of
-                        // redirecting, so the app can render its own error/no-permission UI.
+                        // Not a session error (403/429/5xx): let caller render its own UI.
                         return null;
                     }
                 }
@@ -446,12 +399,7 @@ class Auth {
             try {
                 const user = yield this.getUser();
                 if (user) {
-                    // Union the top-level `permissions` list (direct grants — and, once the backend ships
-                    // it, the direct+group union) with every group permission from `groups_detailed`.
-                    // Unioning both sources rather than preferring one is robust to rollout ordering: a
-                    // frontend upgraded before the backend still sees group-derived permissions. Each entry
-                    // is normalised to its bare codename (stripping any legacy "module." prefix) so callers
-                    // compare against the one canonical identifier, then deduplicated.
+                    // Union `permissions` + `groups_detailed`, normalize, dedupe codenames.
                     const topLevel = Array.isArray(user.permissions) ? user.permissions : [];
                     const groupPermissions = (user === null || user === void 0 ? void 0 : user.groups_detailed)
                         ? Object.values(user.groups_detailed)
@@ -534,8 +482,7 @@ class Auth {
             if (this.cachedToken &&
                 this.tokenTimestamp &&
                 currentTime - this.tokenTimestamp < Auth.CACHE_DURATION) {
-                // Cookies can be replaced by another login app or removed in another
-                // tab. Never let the in-memory cache outlive that account/session change.
+                // Cookies can change in another tab; never let cache outlive that.
                 const storedToken = yield this.getKeyValue("token");
                 if (storedToken === this.cachedToken) {
                     return this.cachedToken;
@@ -604,8 +551,7 @@ class Auth {
                     };
                 }
                 try {
-                    // The access token that led here is absent or untrusted. Remove it
-                    // before the network call so concurrent consumers cannot reuse it.
+                    // Token is untrusted; clear it before the call so it can't be reused.
                     yield this.clearAccessToken();
                     const response = yield fetch(`${this.authConfig.AUTH_BASE_URL}${this.authConfig.REFRESH_ENDPOINT}`, {
                         method: "POST",
@@ -754,8 +700,7 @@ class Auth {
         });
     }
     /**
-     * Logs out the user by optionally revoking the server-side session, clearing
-     * local storage, and redirecting to login.
+     * Logs out the user: clears local storage, best-effort revokes the server session, then redirects to login.
      * @throws {Error} If the Auth config is unavailable.
      */
     logout() {
@@ -771,8 +716,7 @@ class Auth {
             catch (error) {
                 console.error("envoy-ts-auth-logout storage error: ", error);
             }
-            // Local credentials are removed before the network request so a slow or
-            // unavailable auth service cannot keep the browser authenticated.
+            // Clear local creds first; a slow auth service can't stay logged in.
             yield this.clearCookies();
             yield this.revokeServerSession(accessToken, refreshToken);
             this.redirectToLoginPage();
@@ -807,8 +751,7 @@ class Auth {
                             return false;
                         }
                         if (data && data.access) {
-                            // A successful login can change the account in the same runtime.
-                            // Drop the old subject's token and user caches before persisting it.
+                            // Login can change accounts; drop old subject's caches first.
                             const previousAccessToken = yield this.getKeyValue("token");
                             const previousRefreshToken = yield this.getKeyValue("refresh");
                             yield this.clearCookies();
@@ -842,13 +785,7 @@ class Auth {
         });
     }
     /**
-     * Checks if the user is logged in (token present and valid).
-     *
-     * **Side-effect**: On web platforms, if a valid token is found, the user is
-     * automatically redirected to the `continue` query-param URL or the configured
-     * `LAUNCHPAD_PAGE_URL`. Designed for use on login/guard pages where an already-
-     * authenticated user should be bounced away immediately.
-     *
+     * Checks if logged in; on web, a valid token also triggers a redirect to `continue` or `LAUNCHPAD_PAGE_URL` (side-effect, for login/guard pages).
      * @returns True if logged in, false otherwise.
      * @throws {Error} If unable to check login status.
      */
@@ -879,45 +816,22 @@ Auth.instance = null;
 Auth.initialized = false;
 Auth.CACHE_DURATION = 60 * 1000; // 1 minute
 /**
- * Whether an HTTP status from a BUSINESS API call signals a broken session,
- * i.e. the caller should run its refresh/re-login flow.
- *
- * Only 401 qualifies. A 403 on a business endpoint means the user is
- * authenticated but lacks permission — redirecting to login would bounce the
- * still-valid session straight back and loop. Surface 403 in-app instead
- * (error state, NoPermission view, toast).
- *
- * Note: a 403 from the auth server's own token verify/refresh endpoints is a
- * session-level signal (blacklisted token); {@link Auth.verifyToken} and
- * {@link Auth.reviveToken} already handle that case internally.
- *
+ * Whether an HTTP status from a business API call signals a broken session — only 401 qualifies, not 403 (permission-denied, still authenticated).
  * @param status HTTP status code from a business API response.
  * @category Auth
  */
 function isSessionError(status) {
     return status === 401;
 }
-// Canonical permission catalog (bare codenames), generated from user-management and
-// distributed here the same way OpenAPI schemas are. Import the typed constants for
-// compile-time-checked permission checks: Auth.getInstance().hasPermission(PERMISSIONS[...]).
+// Canonical permission catalog, generated from user-management.
 var permissions_generated_1 = require("./permissions.generated");
 Object.defineProperty(exports, "PERMISSIONS", { enumerable: true, get: function () { return permissions_generated_1.PERMISSIONS; } });
 Object.defineProperty(exports, "PERMISSION_SET", { enumerable: true, get: function () { return permissions_generated_1.PERMISSION_SET; } });
 Object.defineProperty(exports, "PERMISSIONS_BY_MODULE", { enumerable: true, get: function () { return permissions_generated_1.PERMISSIONS_BY_MODULE; } });
-/**
- * Returns an error indicating the Auth config is unavailable.
- * @returns {Error}
- * @internal
- */
 function AuthConfigUnavailableError() {
     return new Error(settings_1.ERROR_MESSAGES.CONFIG_UNAVAILABLE);
 }
-/**
- * Validates the AuthConfig object for required properties.
- * @param config The AuthConfig object to validate.
- * @throws {Error} If any required property is missing.
- * @internal
- */
+/** Validates required AuthConfig fields and BASE_DOMAIN/CURRENT_APP_DOMAIN format; throws if invalid. */
 function validateAuthConfig(config) {
     const requiredProperties = [
         "COOKIE_TOKEN_TTL",
