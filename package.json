@@ -32,7 +32,7 @@
     "typedoc": "^0.28.18",
     "typedoc-plugin-markdown": "^4.11.0",
     "typescript": "^5.8.3",
-    "vitest": "^2.1.0"
+    "vitest": "^3.2.6"
   },
   "resolutions": {
     "yaml": ">=2.8.3"
