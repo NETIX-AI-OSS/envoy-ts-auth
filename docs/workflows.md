@@ -40,7 +40,8 @@ sequenceDiagram
         Auth->>Store: set token
         Auth-->>App: ok
       else refresh fails
-        Auth->>Auth: clear + redirect/login callback
+        Auth->>Store: clear access + refresh
+        Auth->>Auth: clear token/user caches
         Auth-->>App: failed
       end
     else token exists
@@ -53,7 +54,8 @@ sequenceDiagram
         API-->>Auth: refresh response
         Auth-->>App: status
       else verify 403
-        Auth->>Auth: clear + redirect/login callback
+        Auth->>Store: clear access + refresh
+        Auth->>Auth: clear token/user caches + redirect/login callback
         Auth-->>App: failed
       end
     end
@@ -76,9 +78,19 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  A[logout()] --> B[clearCookies or AsyncStorage remove]
-  B --> C[redirectToLoginPage or ON_LOGOUT]
+  A[logout()] --> B[Capture access and refresh]
+  B --> C[Clear cookies or AsyncStorage and memory caches]
+  C --> D{LOGOUT_ENDPOINT configured?}
+  D -- yes --> E[Best-effort server revocation]
+  D -- no --> F[Skip server call]
+  E --> G[redirectToLoginPage or ON_LOGOUT]
+  F --> G
 ```
+
+Server revocation does not gate local logout. The client clears local state
+before awaiting the optional request, and still redirects when that request
+fails. A successful login similarly invalidates the previous account's state
+and best-effort revokes its tokens when `LOGOUT_ENDPOINT` is configured.
 
 ## Redirect Validation
 

@@ -38,6 +38,7 @@ const config: AuthConfig = {
   REFRESH_ENDPOINT: "/auth/token/refresh/",
   VERIFY_ENDPOINT: "/auth/token/verify/",
   TOKEN_ENDPOINT: "/auth/token/",
+  LOGOUT_ENDPOINT: "/auth/logout/", // optional server-side revocation
   NATIVE_PLATFORM: false,
 };
 
@@ -47,6 +48,12 @@ const auth = Auth.getInstance();
 await auth.verifyToken();
 const user = await auth.getUser();
 ```
+
+When verification or refresh cannot establish a valid session, the library
+returns no access token and removes both persistent and in-memory session
+state. Configure `LOGOUT_ENDPOINT` after the auth backend supports revoking
+the presented access token and optional `{ refresh }` token; local logout is
+always completed even if the revocation request is unavailable.
 
 ## Authentication State Model
 
@@ -91,7 +98,8 @@ sequenceDiagram
       Auth->>Store: persist token
       Auth-->>App: token
     else refresh failure
-      Auth->>Auth: redirectToLoginPage()
+      Auth->>Store: clear access + refresh
+      Auth->>Auth: clear user/token caches
       Auth-->>App: null/failed
     end
   end

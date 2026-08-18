@@ -19,7 +19,9 @@
 ```mermaid
 flowchart TD
   A[Public API call] --> B{cached token/user fresh?}
-  B -- yes --> C[Return cached value]
+  B -- yes --> C{Stored token still matches cache?}
+  C -- yes --> G[Return cached value]
+  C -- no --> D
   B -- no --> D[Read storage]
   D --> E[Verify or refresh]
   E --> F[Persist token/user cache]
@@ -39,3 +41,12 @@ flowchart TD
 
 - Library scope: token lifecycle, user/group/permission fetch helpers, redirect orchestration.
 - Out of scope: backend auth policy, token issuance rules, route-level authorization frameworks.
+
+## Failure Model
+
+- A token is returned only after successful verification or refresh.
+- Verification/refresh failure clears access, refresh, token cache, and user cache.
+- A business API `401` clears session state; a `403` remains an authorization
+  result and does not force logout.
+- Server-side logout is optional and best effort. Backend services and Envoy
+  must continue to enforce token validity and permissions independently.

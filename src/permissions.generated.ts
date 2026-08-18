@@ -6,6 +6,7 @@ export const PERMISSIONS = [
   "adhoc-inspection-cancel",
   "adhoc-inspection-edit",
   "adhoc-inspection-view",
+  "ai-assistant-view",
   "ai-health-view",
   "ai-report-admin",
   "ai-report-configure",
@@ -304,6 +305,9 @@ export type Permission = (typeof PERMISSIONS)[number]
 export const PERMISSION_SET: ReadonlySet<Permission> = new Set(PERMISSIONS)
 
 export const PERMISSIONS_BY_MODULE: Readonly<Record<string, readonly Permission[]>> = {
+  "AI Assistant": [
+    "ai-assistant-view"
+  ],
   "AI Reports": [
     "ai-health-view",
     "ai-report-admin",

@@ -36,6 +36,7 @@ const config: AuthConfig = {
   REFRESH_ENDPOINT: "/auth/token/refresh/",
   VERIFY_ENDPOINT: "/auth/token/verify/",
   TOKEN_ENDPOINT: "/auth/token/",
+  LOGOUT_ENDPOINT: "/auth/logout/", // optional; enable after backend rollout
   NATIVE_PLATFORM: false,
 };
 

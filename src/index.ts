@@ -171,6 +171,8 @@ export type AuthConfig = {
   VERIFY_ENDPOINT: string;
   /** Endpoint for obtaining tokens */
   TOKEN_ENDPOINT: string;
+  /** Optional endpoint for revoking the server-side session during logout */
+  LOGOUT_ENDPOINT?: string;
   /** Set to true if running on a native platform */
   NATIVE_PLATFORM?: boolean;
   /** Callback for login event */
@@ -251,6 +253,67 @@ class Auth {
 
   private get authConfig() {
     return this.config;
+  }
+
+  /**
+   * Drops all in-memory authentication state.
+   *
+   * Token changes must also invalidate the cached user because permissions and
+   * organization membership belong to the token subject that populated it.
+   */
+  private clearSessionCache() {
+    this.cachedToken = null;
+    this.cachedUser = null;
+    this.tokenTimestamp = null;
+    this.userTimestamp = null;
+  }
+
+  /**
+   * Removes only the access token while retaining the refresh token for a
+   * single refresh attempt.
+   */
+  private async clearAccessToken() {
+    this.clearSessionCache();
+    if (this.authConfig.NATIVE_PLATFORM) {
+      await AsyncStorage.removeItem("token");
+    } else {
+      Cookies.remove("token", {
+        domain: this.authConfig.COOKIE_DOMAIN,
+        secure: this.authConfig.COOKIE_SECURE,
+        sameSite: "None",
+      });
+    }
+  }
+
+  /** Best-effort server revocation; local invalidation never depends on it. */
+  private async revokeServerSession(
+    accessToken: string | null,
+    refreshToken: string | null,
+  ) {
+    if (
+      !this.authConfig.LOGOUT_ENDPOINT ||
+      (!accessToken && !refreshToken)
+    ) {
+      return;
+    }
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+      }
+      await fetch(
+        `${this.authConfig.AUTH_BASE_URL}${this.authConfig.LOGOUT_ENDPOINT}`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify(refreshToken ? { refresh: refreshToken } : {}),
+        },
+      );
+    } catch (error: unknown) {
+      console.error("envoy-ts-auth-logout revoke error: ", error);
+    }
   }
 
   /**
@@ -338,6 +401,7 @@ class Auth {
    */
   async clearCookies() {
     if (!this.authConfig) throw AuthConfigUnavailableError();
+    this.clearSessionCache();
     if (this.authConfig.NATIVE_PLATFORM) {
       await AsyncStorage.multiRemove(["token", "refresh"]);
     } else {
@@ -415,22 +479,33 @@ class Auth {
    */
   async getUser() {
     const currentTime = Date.now();
+    let tokenForRequest: string | null = null;
     if (
       this.cachedUser &&
       this.userTimestamp &&
       currentTime - this.userTimestamp < Auth.CACHE_DURATION
     ) {
-      return this.cachedUser;
+      // Confirm that shared storage still belongs to the same session before
+      // returning subject-specific cached profile or permission data.
+      tokenForRequest = await this.getToken();
+      if (tokenForRequest && this.cachedUser) {
+        return this.cachedUser;
+      }
+      if (!tokenForRequest) return null;
     }
     if (!this.authConfig) throw AuthConfigUnavailableError();
     try {
+      const token = tokenForRequest ?? (await this.getToken());
+      if (!token) {
+        return null;
+      }
       const response = await fetchIdempotentWithRetry(
         `${this.authConfig.AUTH_BASE_URL}/auth/me/`,
         {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${await this.getToken()}`,
+            Authorization: `Bearer ${token}`,
           },
         },
       );
@@ -441,6 +516,7 @@ class Auth {
           this.cachedUser = data;
           return data;
         } else if (isSessionError(response.status)) {
+          await this.clearCookies();
           this.redirectToLoginPage();
         } else {
           // 403 (permission denied for an authenticated user), 429, 5xx, …:
@@ -546,18 +622,18 @@ class Auth {
       this.tokenTimestamp &&
       currentTime - this.tokenTimestamp < Auth.CACHE_DURATION
     ) {
-      return this.cachedToken;
+      // Cookies can be replaced by another login app or removed in another
+      // tab. Never let the in-memory cache outlive that account/session change.
+      const storedToken = await this.getKeyValue("token");
+      if (storedToken === this.cachedToken) {
+        return this.cachedToken;
+      }
+      this.clearSessionCache();
     }
     if (!this.authConfig) throw AuthConfigUnavailableError();
     const isPresent = await this.isKeyPresent("token");
     if (isPresent) {
       const token = await this.getKeyValue("token");
-      // A network failure here (offline, DNS, CORS, aborted navigation) must not
-      // escape: callers reach getToken() from request interceptors, where a
-      // rejected promise surfaces as an unhandled app error — Safari reports it
-      // as `TypeError: Load failed`. Treat an unreachable verify endpoint the
-      // same as a non-200 and fall through to reviveToken(), exactly as
-      // getUser()/reviveToken() already do for their own fetches.
       let response: Response | null = null;
       try {
         response = await fetch(
@@ -580,10 +656,14 @@ class Auth {
         this.tokenTimestamp = Date.now();
         return token;
       }
+      if (response?.status === 403) {
+        await this.clearCookies();
+        this.redirectToLoginPage();
+        return null;
+      }
     }
-    await this.reviveToken();
-    const value = await this.getKeyValue("token");
-    return value;
+    const revivedToken = await this.reviveToken();
+    return typeof revivedToken === "string" ? revivedToken : null;
   }
 
   /**
@@ -595,6 +675,7 @@ class Auth {
     if (!this.authConfig) throw AuthConfigUnavailableError();
     const isRefreshTokenPresent = await this.isKeyPresent("refresh");
     if (!isRefreshTokenPresent) {
+      await this.clearCookies();
       return {
         status: "failed",
         message: "Refresh token cookie, not found. Please log in",
@@ -602,12 +683,16 @@ class Auth {
     } else {
       const refreshToken = await this.getKeyValue("refresh");
       if (!refreshToken) {
+        await this.clearCookies();
         return {
           status: "failed",
           message: "Invalid refresh token",
         };
       }
       try {
+        // The access token that led here is absent or untrusted. Remove it
+        // before the network call so concurrent consumers cannot reuse it.
+        await this.clearAccessToken();
         const response = await fetch(
           `${this.authConfig.AUTH_BASE_URL}${this.authConfig.REFRESH_ENDPOINT}`,
           {
@@ -629,14 +714,26 @@ class Auth {
                 value: data.access,
                 maxAge: this.authConfig.COOKIE_TOKEN_TTL || "300",
               });
+              if (data.refresh) {
+                await this.setKeyValue({
+                  key: "refresh",
+                  value: data.refresh,
+                  maxAge: this.authConfig.COOKIE_REFRESH_TTL,
+                });
+              }
+              this.cachedToken = data.access;
+              this.tokenTimestamp = Date.now();
               return data.access;
             } else {
+              await this.clearCookies();
               this.redirectToLoginPage();
+              return { status: "failed", message: "Invalid refresh response" };
             }
           }
           if (response.status === 401) {
-            await this.logout();
-            return;
+            await this.clearCookies();
+            this.redirectToLoginPage();
+            return { status: response.status };
           }
           if (response?.status === 403) {
             await this.clearCookies();
@@ -644,15 +741,20 @@ class Auth {
             return { status: response?.status };
           }
           if (response.status === 404) {
+            await this.clearCookies();
             return {
               status: response?.status,
               message: "Cookie not found, please log in",
             };
           }
+          await this.clearCookies();
+          return { status: response.status };
         }
       } catch (error: unknown) {
         const err = error as ErrorHandler;
         console.error("envoy-ts-auth-reviveToken error: ", err);
+        await this.clearCookies();
+        return { status: "failed", message: "Unable to refresh session" };
       }
     }
   }
@@ -666,6 +768,7 @@ class Auth {
     if (!this.authConfig) throw AuthConfigUnavailableError();
     const isRefreshTokenPresent = await this.isKeyPresent("refresh");
     if (!isRefreshTokenPresent) {
+      await this.clearCookies();
       return {
         status: "failed",
         message: "Refresh token cookie, not found. Please log in",
@@ -674,7 +777,7 @@ class Auth {
       const isTokenPresent = await this.isKeyPresent("token");
       if (!isTokenPresent) {
         const response = await this.reviveToken();
-        if (response) return { status: "ok" };
+        if (typeof response === "string") return { status: "ok" };
         else
           return {
             status: "failed",
@@ -683,6 +786,7 @@ class Auth {
       } else {
         const token = await this.getKeyValue("token");
         if (!token) {
+          await this.clearCookies();
           return {
             status: "failed",
             message: "Access token cookie not found. Please log in",
@@ -701,11 +805,15 @@ class Auth {
             },
           );
           if (response.ok) {
+            this.cachedToken = token;
+            this.tokenTimestamp = Date.now();
             return { status: "ok" };
           }
           if (response?.status === 401) {
-            await this.reviveToken();
-            return { status: response?.status };
+            const revivedToken = await this.reviveToken();
+            return typeof revivedToken === "string"
+              ? { status: "ok" }
+              : { status: response.status };
           }
           if (response?.status === 403) {
             await this.clearCookies();
@@ -713,23 +821,40 @@ class Auth {
             return { status: response?.status };
           }
           if (response?.status === 404) {
+            await this.clearCookies();
             return { status: response?.status };
           }
+          await this.clearCookies();
+          return { status: response.status };
         } catch (error: unknown) {
           const err = error as ErrorHandler;
           console.error("envoy-ts-auth-verifyToken error: ", err);
+          await this.clearCookies();
+          return { status: "failed" };
         }
       }
     }
   }
 
   /**
-   * Logs out the user by clearing cookies/storage and redirecting to login.
+   * Logs out the user by optionally revoking the server-side session, clearing
+   * local storage, and redirecting to login.
    * @throws {Error} If the Auth config is unavailable.
    */
   async logout() {
     if (!this.authConfig) throw AuthConfigUnavailableError();
+    let accessToken: string | null = null;
+    let refreshToken: string | null = null;
+    try {
+      accessToken = await this.getKeyValue("token");
+      refreshToken = await this.getKeyValue("refresh");
+    } catch (error: unknown) {
+      console.error("envoy-ts-auth-logout storage error: ", error);
+    }
+    // Local credentials are removed before the network request so a slow or
+    // unavailable auth service cannot keep the browser authenticated.
     await this.clearCookies();
+    await this.revokeServerSession(accessToken, refreshToken);
     this.redirectToLoginPage();
   }
 
@@ -757,8 +882,20 @@ class Auth {
         if (!this.authConfig) throw AuthConfigUnavailableError();
         if (response.status === 200) {
           const data = await response.json();
-          if (data.refresh === undefined) return false;
+          if (data.refresh === undefined) {
+            await this.clearCookies();
+            return false;
+          }
           if (data && data.access) {
+            // A successful login can change the account in the same runtime.
+            // Drop the old subject's token and user caches before persisting it.
+            const previousAccessToken = await this.getKeyValue("token");
+            const previousRefreshToken = await this.getKeyValue("refresh");
+            await this.clearCookies();
+            await this.revokeServerSession(
+              previousAccessToken,
+              previousRefreshToken,
+            );
             await this.setKeyValue({
               key: "token",
               value: data.access,
@@ -769,6 +906,8 @@ class Auth {
               value: data.refresh,
               maxAge: this.authConfig.COOKIE_REFRESH_TTL,
             });
+            this.cachedToken = data.access;
+            this.tokenTimestamp = Date.now();
             this.redirectToSourcePage();
             return true;
           } else return false;
@@ -777,6 +916,8 @@ class Auth {
     } catch (error: unknown) {
       const err = error as ErrorHandler;
       console.error("envoy-ts-auth-login error: ", err);
+      await this.clearCookies();
+      return false;
     }
   }
 

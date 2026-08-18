@@ -175,34 +175,68 @@ describe('Auth', () => {
       expect(global.fetch).toHaveBeenCalledTimes(1)
     })
 
-    it('does not reject when the verify call fails at the network layer', async () => {
+    it('invalidates the cache when another login replaces the stored token', async () => {
       Auth.initialize(baseConfig)
       const auth = Auth.getInstance()
       vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
-      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('stored-token')
-      vi.spyOn(auth, 'reviveToken').mockResolvedValue(undefined)
+      vi.spyOn(auth, 'getKeyValue')
+        .mockResolvedValueOnce('first-account-token')
+        .mockResolvedValueOnce('second-account-token')
+        .mockResolvedValueOnce('second-account-token')
+      global.fetch = vi.fn().mockResolvedValue({ status: 200, ok: true })
+
+      expect(await auth.getToken()).toBe('first-account-token')
+      expect(await auth.getToken()).toBe('second-account-token')
+      expect(global.fetch).toHaveBeenCalledTimes(2)
+    })
+
+    it('fails closed when verify and refresh calls fail at the network layer', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue')
+        .mockResolvedValueOnce('stored-token')
+        .mockResolvedValueOnce('stored-refresh')
+      vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+      const clearCookies = vi.spyOn(auth, 'clearCookies')
       // Safari's wording for a failed fetch; callers reach getToken() from
       // request interceptors, where a rejection becomes an unhandled app error.
       global.fetch = vi.fn().mockRejectedValue(new TypeError('Load failed'))
 
-      await expect(auth.getToken()).resolves.toBe('stored-token')
-      expect(auth.reviveToken).toHaveBeenCalled()
+      await expect(auth.getToken()).resolves.toBeNull()
+      expect(global.fetch).toHaveBeenCalledTimes(2)
+      expect(clearCookies).toHaveBeenCalled()
     })
 
-    it('does not cache the token when verification could not be performed', async () => {
+    it('does not reread an unverified token after refresh fails', async () => {
       Auth.initialize(baseConfig)
       const auth = Auth.getInstance()
       vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
-      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('stored-token')
-      vi.spyOn(auth, 'reviveToken').mockResolvedValue(undefined)
-      global.fetch = vi.fn().mockRejectedValue(new TypeError('Load failed'))
+      const getKeyValue = vi.spyOn(auth, 'getKeyValue')
+        .mockResolvedValueOnce('stored-token')
+        .mockResolvedValueOnce('stored-refresh')
+      vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce({ ok: false, status: 401 })
+        .mockResolvedValueOnce({ ok: false, status: 401 })
 
-      await auth.getToken()
-      await auth.getToken()
+      expect(await auth.getToken()).toBeNull()
+      expect(getKeyValue).toHaveBeenCalledTimes(2)
+    })
 
-      // An unverified token must not populate the cache, so the second call
-      // retries the verify ping rather than trusting the first failure.
-      expect(global.fetch).toHaveBeenCalledTimes(2)
+    it('clears a server-rejected access token without attempting refresh on 403', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('revoked-token')
+      const clearCookies = vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+      const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 403 })
+
+      expect(await auth.getToken()).toBeNull()
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+      expect(clearCookies).toHaveBeenCalled()
+      expect(redirect).toHaveBeenCalled()
     })
   })
 
@@ -242,6 +276,37 @@ describe('Auth', () => {
         expect.objectContaining({ key: 'token', value: 'new-access-token' })
       )
     })
+
+    it('persists a rotated refresh token', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('old-refresh-token')
+      const setKeyValue = vi.spyOn(auth, 'setKeyValue').mockResolvedValue(undefined)
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ access: 'new-access-token', refresh: 'new-refresh-token' }),
+      })
+
+      await auth.reviveToken()
+
+      expect(setKeyValue).toHaveBeenCalledWith(
+        expect.objectContaining({ key: 'refresh', value: 'new-refresh-token' })
+      )
+    })
+
+    it('clears the entire session when refresh is rejected', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('bad-refresh-token')
+      const clearCookies = vi.spyOn(auth, 'clearCookies')
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 })
+
+      expect(await auth.reviveToken()).toEqual({ status: 503 })
+      expect(clearCookies).toHaveBeenCalled()
+    })
   })
 
   // ── Auth actions ──────────────────────────────────────────────────────────
@@ -267,6 +332,32 @@ describe('Auth', () => {
       )
     })
 
+    it('invalidates the previous account cache before storing a new login', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getToken').mockResolvedValue('old-token')
+      vi.spyOn(auth, 'setKeyValue').mockResolvedValue(undefined)
+      vi.spyOn(auth, 'redirectToSourcePage').mockReturnValue(undefined)
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ id: 1, username: 'old-account' }),
+        })
+        .mockResolvedValueOnce({
+          status: 200,
+          ok: true,
+          json: async () => ({ access: 'new-access', refresh: 'new-refresh' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ id: 2, username: 'new-account' }),
+        })
+
+      expect(await auth.getUser()).toMatchObject({ id: 1 })
+      expect(await auth.login('new-account', 'password')).toBe(true)
+      expect(await auth.getUser()).toMatchObject({ id: 2 })
+    })
+
     it('returns false when response is missing the refresh token', async () => {
       Auth.initialize(baseConfig)
       global.fetch = vi.fn().mockResolvedValue({
@@ -289,6 +380,43 @@ describe('Auth', () => {
       await auth.logout()
       expect(clearCookies).toHaveBeenCalled()
       expect(redirect).toHaveBeenCalled()
+    })
+
+    it('revokes the server session when an endpoint is configured', async () => {
+      Auth.initialize({ ...baseConfig, LOGOUT_ENDPOINT: '/auth/logout/' })
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getKeyValue')
+        .mockResolvedValueOnce('access-token')
+        .mockResolvedValueOnce('refresh-token')
+      const clearCookies = vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+      vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 })
+
+      await auth.logout()
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://auth.example.com/auth/logout/',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+          body: JSON.stringify({ refresh: 'refresh-token' }),
+        })
+      )
+      expect(clearCookies).toHaveBeenCalled()
+    })
+
+    it('still clears local state when server revocation fails', async () => {
+      Auth.initialize({ ...baseConfig, LOGOUT_ENDPOINT: '/auth/logout/' })
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getKeyValue')
+        .mockResolvedValueOnce('access-token')
+        .mockResolvedValueOnce('refresh-token')
+      const clearCookies = vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+      vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+      global.fetch = vi.fn().mockRejectedValue(new TypeError('offline'))
+
+      await expect(auth.logout()).resolves.toBeUndefined()
+      expect(clearCookies).toHaveBeenCalled()
     })
   })
 
@@ -417,6 +545,30 @@ describe('Auth', () => {
       expect(global.fetch).toHaveBeenCalledTimes(1)
     })
 
+    it('does not return the previous account when shared storage changes', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue')
+        .mockResolvedValueOnce('first-account-token')
+        .mockResolvedValueOnce('second-account-token')
+        .mockResolvedValueOnce('second-account-token')
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce({ ok: true, status: 200 })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ id: 1, username: 'first-account' }),
+        })
+        .mockResolvedValueOnce({ ok: true, status: 200 })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ id: 2, username: 'second-account' }),
+        })
+
+      expect(await auth.getUser()).toMatchObject({ id: 1 })
+      expect(await auth.getUser()).toMatchObject({ id: 2 })
+    })
+
     it('propagates a 403 (permission denied) without redirecting or clearing cookies', async () => {
       Auth.initialize(baseConfig)
       const auth = Auth.getInstance()
@@ -500,10 +652,12 @@ describe('Auth', () => {
       const auth = Auth.getInstance()
       vi.spyOn(auth, 'getToken').mockResolvedValue('stale-token')
       const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+      const clearCookies = vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
       global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 401 })
 
       await auth.getUser()
       expect(redirect).toHaveBeenCalled()
+      expect(clearCookies).toHaveBeenCalled()
       // 401 is a deterministic, non-retryable failure - only one attempt.
       expect(global.fetch).toHaveBeenCalledTimes(1)
     })
