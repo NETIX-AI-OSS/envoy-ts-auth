@@ -1,17 +1,10 @@
 /**
- * @internal Test-only hook to swap out the default `setTimeout`-based sleep used by
- * {@link fetchIdempotentWithRetry} when no `opts.sleep` is supplied, so tests don't have
- * to wait out real backoff delays. Not part of the public API.
+ * Test-only hook that swaps the default `setTimeout`-based sleep used by {@link fetchIdempotentWithRetry}, so tests skip real backoff delays.
+ * @internal
  */
 export declare function __setDefaultRetrySleepForTests(sleep: (ms: number) => Promise<void>): void;
 /**
- * Represents a key-value pair for storage operations (cookie or AsyncStorage).
- *
- * Used by {@link Auth.setKeyValue}.
- *
- * @property key - The key to set in storage.
- * @property value - The value to store.
- * @property [maxAge] - Optional max age (in seconds) for the key (used for cookies).
+ * Key-value pair for storage operations (cookie or AsyncStorage), used by {@link Auth.setKeyValue}.
  * @category Types
  */
 export type KeyVal = {
@@ -58,22 +51,7 @@ export type AuthConfig = {
     ON_LOGOUT?: () => void;
 };
 /**
- * Internal: Current authentication configuration.
- */
-/**
- * Singleton class for authentication and authorization utilities.
- *
- * Provides methods for token management, user info, login/logout, and redirection.
- *
- * Usage:
- *   1. Call {@link Auth.initialize} once with your config.
- *   2. Use {@link Auth.getInstance} to access all methods.
- *
- * @example
- *   Auth.initialize(config);
- *   const auth = Auth.getInstance();
- *   const user = await auth.getUser();
- *
+ * Singleton class for authentication and authorization utilities — call {@link Auth.initialize} once, then {@link Auth.getInstance} for all methods.
  * @category Auth
  */
 declare class Auth {
@@ -87,8 +65,7 @@ declare class Auth {
     private static readonly CACHE_DURATION;
     private constructor();
     /**
-     * Initializes the Auth singleton with the given configuration.
-     * Must be called before using any Auth methods.
+     * Initializes the Auth singleton with the given configuration; must be called before any other Auth method.
      * @param config The authentication configuration object.
      * @throws If already initialized or config is invalid.
      */
@@ -99,23 +76,12 @@ declare class Auth {
      * @throws If Auth is not initialized.
      */
     static getInstance(): Auth;
-    /**
-     * Resets the Auth singleton, allowing re-initialization.
-     * Intended for use in tests and environments that require reconfiguration.
-     */
+    /** Resets the Auth singleton so it can be re-initialized (for tests/reconfiguration). */
     static reset(): void;
     private get authConfig();
-    /**
-     * Drops all in-memory authentication state.
-     *
-     * Token changes must also invalidate the cached user because permissions and
-     * organization membership belong to the token subject that populated it.
-     */
+    /** Drops all in-memory state; token changes must also drop the cached user, since permissions/org membership belong to the token subject that populated it. */
     private clearSessionCache;
-    /**
-     * Removes only the access token while retaining the refresh token for a
-     * single refresh attempt.
-     */
+    /** Removes only the access token, retaining the refresh token for a single refresh attempt. */
     private clearAccessToken;
     /** Best-effort server revocation; local invalidation never depends on it. */
     private revokeServerSession;
@@ -160,14 +126,7 @@ declare class Auth {
      */
     redirectToSourcePage(): void;
     /**
-     * Gets the current user from the API or cache.
-     *
-     * Only a 401 (session problem) triggers the login redirect. Any other
-     * failure — 403 from a fail-closed permission gate, 429, 5xx — resolves to
-     * `null` so callers can surface an in-app error/no-permission state instead
-     * of bouncing a logged-in user to the login page (which would loop straight
-     * back while the session is still valid).
-     *
+     * Gets the current user from the API or cache; only a 401 triggers the login redirect, other failures (403/429/5xx) resolve to `null`.
      * @returns The user object or null if not found.
      * @throws {Error} If the Auth config is unavailable.
      */
@@ -225,8 +184,7 @@ declare class Auth {
         message?: undefined;
     }>;
     /**
-     * Logs out the user by optionally revoking the server-side session, clearing
-     * local storage, and redirecting to login.
+     * Logs out the user: clears local storage, best-effort revokes the server session, then redirects to login.
      * @throws {Error} If the Auth config is unavailable.
      */
     logout(): Promise<void>;
@@ -239,36 +197,15 @@ declare class Auth {
      */
     login(username: string, password: string): Promise<boolean | undefined>;
     /**
-     * Checks if the user is logged in (token present and valid).
-     *
-     * **Side-effect**: On web platforms, if a valid token is found, the user is
-     * automatically redirected to the `continue` query-param URL or the configured
-     * `LAUNCHPAD_PAGE_URL`. Designed for use on login/guard pages where an already-
-     * authenticated user should be bounced away immediately.
-     *
+     * Checks if logged in; on web, a valid token also triggers a redirect to `continue` or `LAUNCHPAD_PAGE_URL` (side-effect, for login/guard pages).
      * @returns True if logged in, false otherwise.
      * @throws {Error} If unable to check login status.
      */
     isLoggedIn(): Promise<boolean>;
 }
-/**
- * Exports the Auth class for authentication utilities.
- * @category Auth
- */
 export { Auth };
 /**
- * Whether an HTTP status from a BUSINESS API call signals a broken session,
- * i.e. the caller should run its refresh/re-login flow.
- *
- * Only 401 qualifies. A 403 on a business endpoint means the user is
- * authenticated but lacks permission — redirecting to login would bounce the
- * still-valid session straight back and loop. Surface 403 in-app instead
- * (error state, NoPermission view, toast).
- *
- * Note: a 403 from the auth server's own token verify/refresh endpoints is a
- * session-level signal (blacklisted token); {@link Auth.verifyToken} and
- * {@link Auth.reviveToken} already handle that case internally.
- *
+ * Whether an HTTP status from a business API call signals a broken session — only 401 qualifies, not 403 (permission-denied, still authenticated).
  * @param status HTTP status code from a business API response.
  * @category Auth
  */
