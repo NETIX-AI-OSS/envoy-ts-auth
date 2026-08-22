@@ -9,6 +9,7 @@ It is maintained in the open by NETIX.AI OSS and designed for teams that need a 
 - Shared auth behavior for web and native runtimes
 - Built-in token verify/refresh flow with explicit fallback behavior
 - Simple public API surface for app-level auth guards and bootstrapping
+- Framework-neutral organization locale fetching and identity-safe offline cache
 
 ## Install
 
@@ -48,6 +49,11 @@ const auth = Auth.getInstance();
 await auth.verifyToken();
 const user = await auth.getUser();
 ```
+
+Organization terminology is available through the separately configured
+`LocaleRuntime`; see the [locale runtime guide](docs/localization.md). It
+supports browser localStorage and React Native AsyncStorage without requiring
+an i18n library.
 
 When verification or refresh cannot establish a valid session, the library
 returns no access token and removes both persistent and in-memory session
@@ -122,6 +128,7 @@ flowchart TD
 - Getting started: [`docs/getting-started.md`](docs/getting-started.md)
 - Configuration reference: [`docs/configuration.md`](docs/configuration.md)
 - Workflows: [`docs/workflows.md`](docs/workflows.md)
+- Organization locale runtime: [`docs/localization.md`](docs/localization.md)
 - Architecture notes: [`docs/architecture.md`](docs/architecture.md)
 - Troubleshooting: [`docs/troubleshooting.md`](docs/troubleshooting.md)
 - API reference (compact): [`docs/api/README.md`](docs/api/README.md)

@@ -8,8 +8,9 @@ Narrative guides are primary. API docs are intentionally compact.
 1. [Getting Started](getting-started.md)
 2. [Configuration Reference](configuration.md)
 3. [Auth Workflows](workflows.md)
-4. [Architecture Notes](architecture.md)
-5. [Troubleshooting](troubleshooting.md)
+4. [Organization Locale Runtime](localization.md)
+5. [Architecture Notes](architecture.md)
+6. [Troubleshooting](troubleshooting.md)
 
 ## API Reference
 

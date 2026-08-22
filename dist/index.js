@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PERMISSIONS_BY_MODULE = exports.PERMISSION_SET = exports.PERMISSIONS = exports.Auth = void 0;
+exports.createBrowserLocaleStorage = exports.createAsyncStorageLocaleStorage = exports.LocaleRuntime = exports.PERMISSIONS_BY_MODULE = exports.PERMISSION_SET = exports.PERMISSIONS = exports.Auth = void 0;
 exports.__setDefaultRetrySleepForTests = __setDefaultRetrySleepForTests;
 exports.isSessionError = isSessionError;
 const async_storage_1 = __importDefault(require("@react-native-async-storage/async-storage"));
@@ -828,6 +828,10 @@ var permissions_generated_1 = require("./permissions.generated");
 Object.defineProperty(exports, "PERMISSIONS", { enumerable: true, get: function () { return permissions_generated_1.PERMISSIONS; } });
 Object.defineProperty(exports, "PERMISSION_SET", { enumerable: true, get: function () { return permissions_generated_1.PERMISSION_SET; } });
 Object.defineProperty(exports, "PERMISSIONS_BY_MODULE", { enumerable: true, get: function () { return permissions_generated_1.PERMISSIONS_BY_MODULE; } });
+var locale_1 = require("./locale");
+Object.defineProperty(exports, "LocaleRuntime", { enumerable: true, get: function () { return locale_1.LocaleRuntime; } });
+Object.defineProperty(exports, "createAsyncStorageLocaleStorage", { enumerable: true, get: function () { return locale_1.createAsyncStorageLocaleStorage; } });
+Object.defineProperty(exports, "createBrowserLocaleStorage", { enumerable: true, get: function () { return locale_1.createBrowserLocaleStorage; } });
 function AuthConfigUnavailableError() {
     return new Error(settings_1.ERROR_MESSAGES.CONFIG_UNAVAILABLE);
 }

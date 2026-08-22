@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Framework-neutral `LocaleRuntime` with typed effective-locale payloads,
+  browser and React Native storage adapters, bounded identity-scoped caching,
+  ETag revalidation, offline preference reconciliation, and universal-login
+  locale-context support.
+
 ## [1.4.0] — 2026-08-18
 
 ### Added
