@@ -891,6 +891,21 @@ export {
   type Permission,
 } from "./permissions.generated";
 
+export {
+  LocaleRuntime,
+  createAsyncStorageLocaleStorage,
+  createBrowserLocaleStorage,
+  type AsyncStorageLike,
+  type BrowserStorageLike,
+  type EffectiveLocale,
+  type LocaleCacheEnvelope,
+  type LocaleIdentity,
+  type LocaleRefreshResult,
+  type LocaleRuntimeConfig,
+  type LocaleStorage,
+  type LocaleTranslations,
+} from "./locale";
+
 function AuthConfigUnavailableError() {
   return new Error(ERROR_MESSAGES.CONFIG_UNAVAILABLE);
 }

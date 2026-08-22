@@ -8,7 +8,7 @@
 
 > **KeyVal** = `object`
 
-Defined in: [src/index.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/bb36c85c77ff6e4deb6c43324d024053b8dfc765/src/index.ts#L105)
+Defined in: [src/index.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/089495cad60af6640a27c7f23b89176eb6d5fab3/src/index.ts#L105)
 
 Key-value pair for storage operations (cookie or AsyncStorage), used by [Auth.setKeyValue](../classes/Auth.md#setkeyvalue).
 
@@ -18,7 +18,7 @@ Key-value pair for storage operations (cookie or AsyncStorage), used by [Auth.se
 
 > **key**: `string`
 
-Defined in: [src/index.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/bb36c85c77ff6e4deb6c43324d024053b8dfc765/src/index.ts#L105)
+Defined in: [src/index.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/089495cad60af6640a27c7f23b89176eb6d5fab3/src/index.ts#L105)
 
 ***
 
@@ -26,7 +26,7 @@ Defined in: [src/index.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blo
 
 > `optional` **maxAge?**: `string`
 
-Defined in: [src/index.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/bb36c85c77ff6e4deb6c43324d024053b8dfc765/src/index.ts#L105)
+Defined in: [src/index.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/089495cad60af6640a27c7f23b89176eb6d5fab3/src/index.ts#L105)
 
 ***
 
@@ -34,4 +34,4 @@ Defined in: [src/index.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blo
 
 > **value**: `string`
 
-Defined in: [src/index.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/bb36c85c77ff6e4deb6c43324d024053b8dfc765/src/index.ts#L105)
+Defined in: [src/index.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/089495cad60af6640a27c7f23b89176eb6d5fab3/src/index.ts#L105)

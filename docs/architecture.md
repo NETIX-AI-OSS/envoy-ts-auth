@@ -13,6 +13,9 @@
   - Browser: `js-cookie` and `document.cookie`
   - Native: `@react-native-async-storage/async-storage`
 - Network calls: direct `fetch` to token, verify, and refresh endpoints (configurable via `TOKEN_ENDPOINT`, `VERIFY_ENDPOINT`, `REFRESH_ENDPOINT`), and user endpoint (hard-coded to `AUTH_BASE_URL + /auth/me/`).
+- `LocaleRuntime`: an optional, framework-neutral organization locale client
+  with injected token, fetch, and async storage providers. Its cache is scoped
+  by API origin, application, user, organization, and language.
 
 ## Request/Cache Model
 
@@ -40,7 +43,11 @@ flowchart TD
 ## Boundaries
 
 - Library scope: token lifecycle, user/group/permission fetch helpers, redirect orchestration.
+- Locale scope: health-gated effective-locale retrieval, conditional requests,
+  bounded persistence, offline preference replay, and session isolation hooks.
 - Out of scope: backend auth policy, token issuance rules, route-level authorization frameworks.
+- Out of scope: i18n rendering, React lifecycle integration, AppState/network
+  subscriptions, and tenant-discovery authorization.
 
 ## Failure Model
 

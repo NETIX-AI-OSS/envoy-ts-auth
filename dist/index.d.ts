@@ -211,3 +211,4 @@ export { Auth };
  */
 export declare function isSessionError(status: number): boolean;
 export { PERMISSIONS, PERMISSION_SET, PERMISSIONS_BY_MODULE, type Permission, } from "./permissions.generated";
+export { LocaleRuntime, createAsyncStorageLocaleStorage, createBrowserLocaleStorage, type AsyncStorageLike, type BrowserStorageLike, type EffectiveLocale, type LocaleCacheEnvelope, type LocaleIdentity, type LocaleRefreshResult, type LocaleRuntimeConfig, type LocaleStorage, type LocaleTranslations, } from "./locale";
