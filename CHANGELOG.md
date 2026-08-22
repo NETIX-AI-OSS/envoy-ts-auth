@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-08-22
+
 ### Added
 
 - Framework-neutral `LocaleRuntime` with typed effective-locale payloads,

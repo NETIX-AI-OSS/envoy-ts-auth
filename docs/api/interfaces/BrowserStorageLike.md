@@ -6,7 +6,7 @@
 
 # Interface: BrowserStorageLike
 
-Defined in: src/locale.ts:52
+Defined in: [src/locale.ts:52](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L52)
 
 Browser localStorage-compatible subset.
 
@@ -16,7 +16,7 @@ Browser localStorage-compatible subset.
 
 > **getItem**(`key`): `string` \| `null`
 
-Defined in: src/locale.ts:53
+Defined in: [src/locale.ts:53](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L53)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: src/locale.ts:53
 
 > **removeItem**(`key`): `void`
 
-Defined in: src/locale.ts:55
+Defined in: [src/locale.ts:55](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L55)
 
 #### Parameters
 
@@ -52,7 +52,7 @@ Defined in: src/locale.ts:55
 
 > **setItem**(`key`, `value`): `void`
 
-Defined in: src/locale.ts:54
+Defined in: [src/locale.ts:54](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L54)
 
 #### Parameters
 

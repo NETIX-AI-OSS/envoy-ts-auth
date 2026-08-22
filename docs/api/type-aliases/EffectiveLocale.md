@@ -8,7 +8,7 @@
 
 > **EffectiveLocale** = `object`
 
-Defined in: src/locale.ts:7
+Defined in: [src/locale.ts:7](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L7)
 
 Effective locale payload returned by user-management.
 
@@ -18,7 +18,7 @@ Effective locale payload returned by user-management.
 
 > **application**: `string`
 
-Defined in: src/locale.ts:8
+Defined in: [src/locale.ts:8](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L8)
 
 ***
 
@@ -26,7 +26,7 @@ Defined in: src/locale.ts:8
 
 > **available\_languages**: `string`[]
 
-Defined in: src/locale.ts:11
+Defined in: [src/locale.ts:11](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L11)
 
 ***
 
@@ -34,7 +34,7 @@ Defined in: src/locale.ts:11
 
 > **requested\_language**: `string`
 
-Defined in: src/locale.ts:9
+Defined in: [src/locale.ts:9](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L9)
 
 ***
 
@@ -42,7 +42,7 @@ Defined in: src/locale.ts:9
 
 > **resolved\_language**: `string`
 
-Defined in: src/locale.ts:10
+Defined in: [src/locale.ts:10](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L10)
 
 ***
 
@@ -50,7 +50,7 @@ Defined in: src/locale.ts:10
 
 > **revision**: `string`
 
-Defined in: src/locale.ts:12
+Defined in: [src/locale.ts:12](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L12)
 
 ***
 
@@ -58,4 +58,4 @@ Defined in: src/locale.ts:12
 
 > **translations**: [`LocaleTranslations`](LocaleTranslations.md)
 
-Defined in: src/locale.ts:13
+Defined in: [src/locale.ts:13](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L13)

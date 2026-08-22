@@ -8,4 +8,4 @@
 
 > `const` **PERMISSION\_SET**: `ReadonlySet`\<[`Permission`](../type-aliases/Permission.md)\>
 
-Defined in: [src/permissions.generated.ts:305](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/089495cad60af6640a27c7f23b89176eb6d5fab3/src/permissions.generated.ts#L305)
+Defined in: [src/permissions.generated.ts:305](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/permissions.generated.ts#L305)

@@ -6,7 +6,7 @@
 
 # Class: LocaleRuntime
 
-Defined in: src/locale.ts:125
+Defined in: [src/locale.ts:125](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L125)
 
 Framework-neutral organization locale coordinator.
 
@@ -19,7 +19,7 @@ persistence, health-gated network reconciliation, and conditional requests.
 
 > **new LocaleRuntime**(`config`): `LocaleRuntime`
 
-Defined in: src/locale.ts:148
+Defined in: [src/locale.ts:148](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L148)
 
 #### Parameters
 
@@ -37,7 +37,7 @@ Defined in: src/locale.ts:148
 
 > **checkHealth**(): `Promise`\<`boolean`\>
 
-Defined in: src/locale.ts:186
+Defined in: [src/locale.ts:186](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L186)
 
 Returns true only when user-management answers its health endpoint successfully.
 
@@ -51,7 +51,7 @@ Returns true only when user-management answers its health endpoint successfully.
 
 > **clearIdentity**(`identity`): `Promise`\<`void`\>
 
-Defined in: src/locale.ts:404
+Defined in: [src/locale.ts:404](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L404)
 
 Removes all persisted locale and pending-preference state for one identity.
 
@@ -71,7 +71,7 @@ Removes all persisted locale and pending-preference state for one identity.
 
 > **fetchAnonymousEffective**(`language`, `localeContextToken?`): `Promise`\<[`EffectiveLocale`](../type-aliases/EffectiveLocale.md)\>
 
-Defined in: src/locale.ts:347
+Defined in: [src/locale.ts:347](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L347)
 
 Fetches universal-login copy before authentication. The context token is
 carried only in X-Locale-Context and is never persisted by this runtime.
@@ -96,7 +96,7 @@ carried only in X-Locale-Context and is never persisted by this runtime.
 
 > **handleLogout**(`identity?`): `Promise`\<`void`\>
 
-Defined in: src/locale.ts:419
+Defined in: [src/locale.ts:419](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L419)
 
 Logout hook: clears the supplied (or active) identity without affecting other users.
 
@@ -116,7 +116,7 @@ Logout hook: clears the supplied (or active) identity without affecting other us
 
 > **hydrate**(`identity`, `language`): `Promise`\<[`LocaleCacheEnvelope`](../type-aliases/LocaleCacheEnvelope.md) \| `null`\>
 
-Defined in: src/locale.ts:199
+Defined in: [src/locale.ts:199](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L199)
 
 Loads an exact identity/org/app/language cache match, otherwise returns null.
 
@@ -140,7 +140,7 @@ Loads an exact identity/org/app/language cache match, otherwise returns null.
 
 > **notifyTokenChanged**(): `void`
 
-Defined in: src/locale.ts:396
+Defined in: [src/locale.ts:396](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L396)
 
 Call after access-token replacement so no in-flight response crosses sessions.
 
@@ -154,7 +154,7 @@ Call after access-token replacement so no in-flight response crosses sessions.
 
 > **reconcilePendingLanguage**(`identity`): `Promise`\<`boolean`\>
 
-Defined in: src/locale.ts:272
+Defined in: [src/locale.ts:272](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L272)
 
 Replays the latest offline language choice. Returns false while still pending.
 
@@ -174,7 +174,7 @@ Replays the latest offline language choice. Returns false while still pending.
 
 > **refreshEffective**(`identity`, `language`): `Promise`\<[`LocaleRefreshResult`](../type-aliases/LocaleRefreshResult.md)\>
 
-Defined in: src/locale.ts:226
+Defined in: [src/locale.ts:226](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L226)
 
 Health-gated authenticated refresh with ETag support and per-request deduplication.
 On a transient outage it returns the exact cached catalog when one exists.
@@ -199,7 +199,7 @@ On a transient outage it returns the exact cached catalog when one exists.
 
 > **setActiveIdentity**(`identity`): `void`
 
-Defined in: src/locale.ts:385
+Defined in: [src/locale.ts:385](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L385)
 
 Marks an identity active and drops request state when the subject/org changes.
 
@@ -219,7 +219,7 @@ Marks an identity active and drops request state when the subject/org changes.
 
 > **setPreferredLanguage**(`identity`, `language`): `Promise`\<`boolean`\>
 
-Defined in: src/locale.ts:253
+Defined in: [src/locale.ts:253](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L253)
 
 Saves the latest choice first, then attempts to reconcile it with the server.
 
