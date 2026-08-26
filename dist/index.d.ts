@@ -1,3 +1,4 @@
+export { BffAuth, type BffAuthConfig, type BffSession } from "./bff";
 /**
  * Test-only hook that swaps the default `setTimeout`-based sleep used by {@link fetchIdempotentWithRetry}, so tests skip real backoff delays.
  * @internal
@@ -45,6 +46,17 @@ export type AuthConfig = {
     LOGOUT_ENDPOINT?: string;
     /** Set to true if running on a native platform */
     NATIVE_PLATFORM?: boolean;
+    /**
+     * Browser migration control. `legacy-shared-cookie` (the default) preserves
+     * one-point login for existing applications. Set `bff-only` only after the
+     * application has moved all API traffic and login bootstrap to BffAuth.
+     */
+    BROWSER_SESSION_MODE?: "legacy-shared-cookie" | "bff-only";
+    /**
+     * @deprecated Use `BROWSER_SESSION_MODE`. Retained so upgrading this library
+     * cannot break applications during the coordinated BFF migration.
+     */
+    ALLOW_INSECURE_BROWSER_TOKEN_STORAGE?: boolean;
     /** Callback for login event */
     ON_LOGIN?: () => void;
     /** Callback for logout event */

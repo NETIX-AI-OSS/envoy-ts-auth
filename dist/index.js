@@ -12,12 +12,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createBrowserLocaleStorage = exports.createAsyncStorageLocaleStorage = exports.LocaleRuntime = exports.PERMISSIONS_BY_MODULE = exports.PERMISSION_SET = exports.PERMISSIONS = exports.Auth = void 0;
+exports.createBrowserLocaleStorage = exports.createAsyncStorageLocaleStorage = exports.LocaleRuntime = exports.PERMISSIONS_BY_MODULE = exports.PERMISSION_SET = exports.PERMISSIONS = exports.Auth = exports.BffAuth = void 0;
 exports.__setDefaultRetrySleepForTests = __setDefaultRetrySleepForTests;
 exports.isSessionError = isSessionError;
 const async_storage_1 = __importDefault(require("@react-native-async-storage/async-storage"));
 const settings_1 = require("./conf/settings");
 const Cookies = require("js-cookie");
+var bff_1 = require("./bff");
+Object.defineProperty(exports, "BffAuth", { enumerable: true, get: function () { return bff_1.BffAuth; } });
 let defaultRetrySleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 /**
  * Test-only hook that swaps the default `setTimeout`-based sleep used by {@link fetchIdempotentWithRetry}, so tests skip real backoff delays.
@@ -106,6 +108,9 @@ class Auth {
             throw new Error(settings_1.ERROR_MESSAGES.ALREADY_INITIALIZED);
         }
         validateAuthConfig(config);
+        if (!config.NATIVE_PLATFORM && config.BROWSER_SESSION_MODE === "bff-only") {
+            throw new Error("envoy-ts-auth: Auth browser token APIs are disabled in bff-only mode. Use BffAuth with host-only HttpOnly cookies.");
+        }
         Auth.instance = new Auth(config);
         Auth.initialized = true;
     }
@@ -854,6 +859,11 @@ function validateAuthConfig(config) {
     const missingProperties = requiredProperties.filter((prop) => !config.hasOwnProperty(prop));
     if (missingProperties.length > 0) {
         throw new Error(`${settings_1.ERROR_MESSAGES.MISSING_PROPERTIES}: ${missingProperties.join(", ")}`);
+    }
+    if (config.BROWSER_SESSION_MODE !== undefined &&
+        config.BROWSER_SESSION_MODE !== "legacy-shared-cookie" &&
+        config.BROWSER_SESSION_MODE !== "bff-only") {
+        throw new Error("envoy-ts-auth: BROWSER_SESSION_MODE must be legacy-shared-cookie or bff-only.");
     }
     const baseDomain = normalizeHostname(config.BASE_DOMAIN);
     const currentAppDomain = normalizeHostname(config.CURRENT_APP_DOMAIN);
