@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ERROR_MESSAGES, REDIRECT_DESTINATION_URL } from "./conf/settings";
 import Cookies = require("js-cookie");
-export { BffAuth, type BffAuthConfig } from "./bff";
+export { BffAuth, type BffAuthConfig, type BffSession } from "./bff";
 
 /**
  * Options for {@link fetchIdempotentWithRetry}.
@@ -149,9 +149,14 @@ export type AuthConfig = {
   /** Set to true if running on a native platform */
   NATIVE_PLATFORM?: boolean;
   /**
-   * Temporary migration escape hatch for legacy browser JWT cookies. Browser
-   * tokens are JavaScript-readable and unsafe under XSS; new web applications
-   * must use {@link BffAuth} instead.
+   * Browser migration control. `legacy-shared-cookie` (the default) preserves
+   * one-point login for existing applications. Set `bff-only` only after the
+   * application has moved all API traffic and login bootstrap to BffAuth.
+   */
+  BROWSER_SESSION_MODE?: "legacy-shared-cookie" | "bff-only";
+  /**
+   * @deprecated Use `BROWSER_SESSION_MODE`. Retained so upgrading this library
+   * cannot break applications during the coordinated BFF migration.
    */
   ALLOW_INSECURE_BROWSER_TOKEN_STORAGE?: boolean;
   /** Callback for login event */
@@ -188,12 +193,9 @@ class Auth {
       throw new Error(ERROR_MESSAGES.ALREADY_INITIALIZED);
     }
     validateAuthConfig(config);
-    if (
-      !config.NATIVE_PLATFORM &&
-      config.ALLOW_INSECURE_BROWSER_TOKEN_STORAGE !== true
-    ) {
+    if (!config.NATIVE_PLATFORM && config.BROWSER_SESSION_MODE === "bff-only") {
       throw new Error(
-        "envoy-ts-auth: browser token storage is disabled. Use BffAuth with host-only HttpOnly cookies, or explicitly enable the temporary insecure migration escape hatch.",
+        "envoy-ts-auth: Auth browser token APIs are disabled in bff-only mode. Use BffAuth with host-only HttpOnly cookies.",
       );
     }
     Auth.instance = new Auth(config);
@@ -947,6 +949,16 @@ function validateAuthConfig(config: AuthConfig) {
   if (missingProperties.length > 0) {
     throw new Error(
       `${ERROR_MESSAGES.MISSING_PROPERTIES}: ${missingProperties.join(", ")}`,
+    );
+  }
+
+  if (
+    config.BROWSER_SESSION_MODE !== undefined &&
+    config.BROWSER_SESSION_MODE !== "legacy-shared-cookie" &&
+    config.BROWSER_SESSION_MODE !== "bff-only"
+  ) {
+    throw new Error(
+      "envoy-ts-auth: BROWSER_SESSION_MODE must be legacy-shared-cookie or bff-only.",
     );
   }
 

@@ -67,11 +67,33 @@ describe('Auth', () => {
   // ── Initialization ────────────────────────────────────────────────────────
 
   describe('initialize', () => {
-    it('rejects JavaScript-readable browser token storage by default', () => {
+    it('preserves the legacy shared-cookie browser flow by default during migration', () => {
       const config = { ...baseConfig }
       delete config.ALLOW_INSECURE_BROWSER_TOKEN_STORAGE
 
-      expect(() => Auth.initialize(config)).toThrow('browser token storage is disabled')
+      expect(() => Auth.initialize(config)).not.toThrow()
+    })
+    it('rejects JavaScript-readable browser token APIs after explicit BFF cutover', () => {
+      expect(() =>
+        Auth.initialize({ ...baseConfig, BROWSER_SESSION_MODE: 'bff-only' })
+      ).toThrow('disabled in bff-only mode')
+    })
+    it('does not apply the browser cutover to React Native', () => {
+      expect(() =>
+        Auth.initialize({
+          ...baseConfig,
+          NATIVE_PLATFORM: true,
+          BROWSER_SESSION_MODE: 'bff-only',
+        })
+      ).not.toThrow()
+    })
+    it('rejects an unknown browser migration mode at runtime', () => {
+      expect(() =>
+        Auth.initialize({
+          ...baseConfig,
+          BROWSER_SESSION_MODE: 'bff-onyl',
+        } as unknown as AuthConfig)
+      ).toThrow('BROWSER_SESSION_MODE')
     })
     it('throws when required config properties are missing', () => {
       const incomplete = { ...baseConfig } as Partial<AuthConfig>
