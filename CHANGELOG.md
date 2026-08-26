@@ -3,7 +3,7 @@
 ## [2.0.0] — 2026-08-26
 
 - Added the same-origin `BffAuth` browser client with credentialed requests and CSRF headers.
-- Browser JavaScript token storage is now disabled by default; the legacy path requires an explicit insecure migration flag.
+- Existing browser shared-cookie sessions remain the migration default so upgrades preserve one-point login; applications disable browser token APIs explicitly with `BROWSER_SESSION_MODE: "bff-only"` after their BFF cutover.
 - Marked the browser boundary as server-managed, host-only HttpOnly sessions.
 
 All notable changes to this project are documented in this file.
