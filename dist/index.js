@@ -108,9 +108,8 @@ class Auth {
             throw new Error(settings_1.ERROR_MESSAGES.ALREADY_INITIALIZED);
         }
         validateAuthConfig(config);
-        if (!config.NATIVE_PLATFORM &&
-            config.ALLOW_INSECURE_BROWSER_TOKEN_STORAGE !== true) {
-            throw new Error("envoy-ts-auth: browser token storage is disabled. Use BffAuth with host-only HttpOnly cookies, or explicitly enable the temporary insecure migration escape hatch.");
+        if (!config.NATIVE_PLATFORM && config.BROWSER_SESSION_MODE === "bff-only") {
+            throw new Error("envoy-ts-auth: Auth browser token APIs are disabled in bff-only mode. Use BffAuth with host-only HttpOnly cookies.");
         }
         Auth.instance = new Auth(config);
         Auth.initialized = true;
@@ -860,6 +859,11 @@ function validateAuthConfig(config) {
     const missingProperties = requiredProperties.filter((prop) => !config.hasOwnProperty(prop));
     if (missingProperties.length > 0) {
         throw new Error(`${settings_1.ERROR_MESSAGES.MISSING_PROPERTIES}: ${missingProperties.join(", ")}`);
+    }
+    if (config.BROWSER_SESSION_MODE !== undefined &&
+        config.BROWSER_SESSION_MODE !== "legacy-shared-cookie" &&
+        config.BROWSER_SESSION_MODE !== "bff-only") {
+        throw new Error("envoy-ts-auth: BROWSER_SESSION_MODE must be legacy-shared-cookie or bff-only.");
     }
     const baseDomain = normalizeHostname(config.BASE_DOMAIN);
     const currentAppDomain = normalizeHostname(config.CURRENT_APP_DOMAIN);
