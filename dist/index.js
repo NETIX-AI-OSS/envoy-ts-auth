@@ -12,12 +12,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createBrowserLocaleStorage = exports.createAsyncStorageLocaleStorage = exports.LocaleRuntime = exports.PERMISSIONS_BY_MODULE = exports.PERMISSION_SET = exports.PERMISSIONS = exports.Auth = void 0;
+exports.createBrowserLocaleStorage = exports.createAsyncStorageLocaleStorage = exports.LocaleRuntime = exports.PERMISSIONS_BY_MODULE = exports.PERMISSION_SET = exports.PERMISSIONS = exports.Auth = exports.BffAuth = void 0;
 exports.__setDefaultRetrySleepForTests = __setDefaultRetrySleepForTests;
 exports.isSessionError = isSessionError;
 const async_storage_1 = __importDefault(require("@react-native-async-storage/async-storage"));
 const settings_1 = require("./conf/settings");
 const Cookies = require("js-cookie");
+var bff_1 = require("./bff");
+Object.defineProperty(exports, "BffAuth", { enumerable: true, get: function () { return bff_1.BffAuth; } });
 let defaultRetrySleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 /**
  * Test-only hook that swaps the default `setTimeout`-based sleep used by {@link fetchIdempotentWithRetry}, so tests skip real backoff delays.
@@ -106,6 +108,10 @@ class Auth {
             throw new Error(settings_1.ERROR_MESSAGES.ALREADY_INITIALIZED);
         }
         validateAuthConfig(config);
+        if (!config.NATIVE_PLATFORM &&
+            config.ALLOW_INSECURE_BROWSER_TOKEN_STORAGE !== true) {
+            throw new Error("envoy-ts-auth: browser token storage is disabled. Use BffAuth with host-only HttpOnly cookies, or explicitly enable the temporary insecure migration escape hatch.");
+        }
         Auth.instance = new Auth(config);
         Auth.initialized = true;
     }

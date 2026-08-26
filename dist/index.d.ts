@@ -1,3 +1,4 @@
+export { BffAuth, type BffAuthConfig } from "./bff";
 /**
  * Test-only hook that swaps the default `setTimeout`-based sleep used by {@link fetchIdempotentWithRetry}, so tests skip real backoff delays.
  * @internal
@@ -45,6 +46,12 @@ export type AuthConfig = {
     LOGOUT_ENDPOINT?: string;
     /** Set to true if running on a native platform */
     NATIVE_PLATFORM?: boolean;
+    /**
+     * Temporary migration escape hatch for legacy browser JWT cookies. Browser
+     * tokens are JavaScript-readable and unsafe under XSS; new web applications
+     * must use {@link BffAuth} instead.
+     */
+    ALLOW_INSECURE_BROWSER_TOKEN_STORAGE?: boolean;
     /** Callback for login event */
     ON_LOGIN?: () => void;
     /** Callback for logout event */

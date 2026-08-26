@@ -1,6 +1,6 @@
 # envoy-ts-auth
 
-`envoy-ts-auth` is a TypeScript authentication helper for browser and React Native clients.
+`envoy-ts-auth` is a TypeScript authentication helper for BFF-backed browser applications and React Native clients.
 It is maintained in the open by NETIX.AI OSS and designed for teams that need a small, predictable auth utility around token lifecycle, redirect orchestration, and user-context helpers.
 
 ## Why This Library
@@ -21,34 +21,28 @@ npm i github:NETIX-AI-OSS/envoy-ts-auth
 
 The package is currently distributed as GitHub source (no npm release yet).
 
-## Quick Start
+## Browser quick start (BFF)
 
 ```ts
-import { Auth, type AuthConfig } from "envoy-ts-auth";
+import { BffAuth } from "envoy-ts-auth";
 
-const config: AuthConfig = {
-  COOKIE_TOKEN_TTL: "300",
-  COOKIE_REFRESH_TTL: "86400",
-  COOKIE_SECURE: true,
-  COOKIE_DOMAIN: ".example.com",
-  BASE_DOMAIN: "example.com",
-  CURRENT_APP_DOMAIN: "app.example.com",
-  LOGIN_PAGE_URL: "https://auth.example.com/login",
-  AUTH_BASE_URL: "https://auth.example.com",
-  LAUNCHPAD_PAGE_URL: "https://app.example.com",
-  REFRESH_ENDPOINT: "/auth/token/refresh/",
-  VERIFY_ENDPOINT: "/auth/token/verify/",
-  TOKEN_ENDPOINT: "/auth/token/",
-  LOGOUT_ENDPOINT: "/auth/logout/", // optional server-side revocation
-  NATIVE_PLATFORM: false,
-};
+const auth = new BffAuth({
+  baseUrl: "/bff/auth",
+  getCsrfToken: () => document.querySelector('meta[name="csrf-token"]')!.getAttribute("content")!,
+});
 
-Auth.initialize(config);
-const auth = Auth.getInstance();
-
-await auth.verifyToken();
+await auth.verifySession();
 const user = await auth.getUser();
 ```
+
+The BFF must set host-only `HttpOnly; Secure; SameSite=Lax` session cookies,
+rotate refresh state server-side, validate CSRF on unsafe methods, and proxy API
+calls. `BffAuth` never exposes an access or refresh token to JavaScript and
+rejects cross-origin BFF URLs.
+
+`Auth` remains available for React Native. Legacy browser token storage now
+fails initialization unless `ALLOW_INSECURE_BROWSER_TOKEN_STORAGE: true` is
+set as a temporary migration escape hatch; do not enable it in new code.
 
 Organization terminology is available through the separately configured
 `LocaleRuntime`; see the [locale runtime guide](docs/localization.md). It

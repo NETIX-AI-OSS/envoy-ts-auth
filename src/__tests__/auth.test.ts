@@ -36,6 +36,7 @@ const baseConfig: AuthConfig = {
   REFRESH_ENDPOINT: '/auth/token/refresh/',
   VERIFY_ENDPOINT: '/auth/token/verify/',
   TOKEN_ENDPOINT: '/auth/token/',
+  ALLOW_INSECURE_BROWSER_TOKEN_STORAGE: true,
 }
 
 function stubLocation(url: string) {
@@ -66,6 +67,12 @@ describe('Auth', () => {
   // ── Initialization ────────────────────────────────────────────────────────
 
   describe('initialize', () => {
+    it('rejects JavaScript-readable browser token storage by default', () => {
+      const config = { ...baseConfig }
+      delete config.ALLOW_INSECURE_BROWSER_TOKEN_STORAGE
+
+      expect(() => Auth.initialize(config)).toThrow('browser token storage is disabled')
+    })
     it('throws when required config properties are missing', () => {
       const incomplete = { ...baseConfig } as Partial<AuthConfig>
       delete incomplete.AUTH_BASE_URL

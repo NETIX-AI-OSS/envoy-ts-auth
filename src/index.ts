@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ERROR_MESSAGES, REDIRECT_DESTINATION_URL } from "./conf/settings";
 import Cookies = require("js-cookie");
+export { BffAuth, type BffAuthConfig } from "./bff";
 
 /**
  * Options for {@link fetchIdempotentWithRetry}.
@@ -147,6 +148,12 @@ export type AuthConfig = {
   LOGOUT_ENDPOINT?: string;
   /** Set to true if running on a native platform */
   NATIVE_PLATFORM?: boolean;
+  /**
+   * Temporary migration escape hatch for legacy browser JWT cookies. Browser
+   * tokens are JavaScript-readable and unsafe under XSS; new web applications
+   * must use {@link BffAuth} instead.
+   */
+  ALLOW_INSECURE_BROWSER_TOKEN_STORAGE?: boolean;
   /** Callback for login event */
   ON_LOGIN?: () => void;
   /** Callback for logout event */
@@ -181,6 +188,14 @@ class Auth {
       throw new Error(ERROR_MESSAGES.ALREADY_INITIALIZED);
     }
     validateAuthConfig(config);
+    if (
+      !config.NATIVE_PLATFORM &&
+      config.ALLOW_INSECURE_BROWSER_TOKEN_STORAGE !== true
+    ) {
+      throw new Error(
+        "envoy-ts-auth: browser token storage is disabled. Use BffAuth with host-only HttpOnly cookies, or explicitly enable the temporary insecure migration escape hatch.",
+      );
+    }
     Auth.instance = new Auth(config);
     Auth.initialized = true;
   }

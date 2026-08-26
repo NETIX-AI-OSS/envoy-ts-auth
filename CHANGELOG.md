@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.0] — 2026-08-26
+
+- Added the same-origin `BffAuth` browser client with credentialed requests and CSRF headers.
+- Browser JavaScript token storage is now disabled by default; the legacy path requires an explicit insecure migration flag.
+- Marked the browser boundary as server-managed, host-only HttpOnly sessions.
+
 All notable changes to this project are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 

@@ -3,14 +3,15 @@
 ## Design Goals
 
 - Keep a small client-side auth abstraction with predictable side effects.
-- Support browser and React Native via one runtime switch.
+- Keep browser credentials behind a same-origin BFF and support native tokens through platform storage.
 - Encapsulate token verification/refresh logic behind simple methods.
 
 ## Core Components
 
-- `Auth` singleton: lifecycle entrypoint and behavior orchestrator.
+- `BffAuth`: browser entrypoint using server-managed HttpOnly sessions.
+- `Auth` singleton: native token lifecycle entrypoint; legacy browser storage requires an explicit insecure escape hatch.
 - Storage adapter behavior:
-  - Browser: `js-cookie` and `document.cookie`
+  - Browser: no token storage; same-origin BFF cookies are inaccessible to JavaScript.
   - Native: `@react-native-async-storage/async-storage`
 - Network calls: direct `fetch` to token, verify, and refresh endpoints (configurable via `TOKEN_ENDPOINT`, `VERIFY_ENDPOINT`, `REFRESH_ENDPOINT`), and user endpoint (hard-coded to `AUTH_BASE_URL + /auth/me/`).
 - `LocaleRuntime`: an optional, framework-neutral organization locale client
