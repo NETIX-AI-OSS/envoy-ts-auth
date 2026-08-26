@@ -89,7 +89,7 @@ export class BffAuth {
 
   /**
    * Builds the same-origin entry point for authorization-code login. The BFF
-   * must generate and retain state, nonce, and the PKCE verifier before it
+   * must generate and retain state and the PKCE verifier before it
    * redirects to the identity provider. No OAuth secret is stored in the browser.
    */
   getAuthorizationUrl(returnTo?: string): URL {

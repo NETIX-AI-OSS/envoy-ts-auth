@@ -42,8 +42,8 @@ The application BFF must provide these same-origin endpoints:
 
 | Endpoint | Required behavior |
 | --- | --- |
-| `GET /oauth/authorize` | Validate `return_to`; create high-entropy `state`, `nonce`, and PKCE verifier; retain them in a short-lived, encrypted or server-side transaction; redirect with an S256 challenge. |
-| `GET /oauth/callback` | Validate state, issuer, audience, nonce, and transaction expiry; exchange the code and verifier server-side; rotate the transaction; create the application session; redirect to the saved path. |
+| `GET /oauth/authorize` | Validate `return_to`; create high-entropy `state` and a PKCE verifier; retain them in a short-lived, encrypted or server-side transaction; redirect with an S256 challenge. |
+| `GET /oauth/callback` | Validate state and transaction expiry; exchange the code and verifier server-side; rotate the transaction; create the application session; redirect to the saved path. |
 | `GET /session` | Return 2xx only for a valid application session and otherwise 401. |
 | `GET /me` | Return the current user for a valid session and otherwise 401. Never return tokens. |
 | `POST /logout` | Require CSRF; revoke/expire the application session; coordinate central logout when product policy requires it. |
