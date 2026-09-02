@@ -96,6 +96,18 @@ export type LocaleRuntimeConfig = {
   maxCacheEntries?: number;
   /** Storage namespace, useful when an app embeds multiple environments. */
   storageNamespace?: string;
+  /**
+   * Locale served when a read path is handed an unparseable language, default `"en"`.
+   * Set it to the deployment's own default so a misconfigured organization degrades to
+   * its own language rather than to English.
+   */
+  fallbackLanguage?: string;
+  /**
+   * Called once per distinct unparseable language code a read path receives. Defaults to
+   * `console.warn`; apps should route it to their error tracker, because this is the only
+   * signal left once the read paths stop throwing.
+   */
+  onInvalidLanguage?: (language: string, fallback: string) => void;
   now?: () => number;
 };
 
@@ -115,6 +127,12 @@ type PendingLanguage = {
 };
 
 const DEFAULT_NAMESPACE = "envoy-ts-auth:locale:v1";
+
+/** Default locale served when a caller supplies an unparseable language on a read path. */
+const FALLBACK_LANGUAGE = "en";
+
+/** Cap on remembered bad codes, so a high-cardinality caller cannot grow the dedupe set forever. */
+const MAX_WARNED_LANGUAGES = 32;
 
 /**
  * Framework-neutral organization locale coordinator.
@@ -136,9 +154,13 @@ export class LocaleRuntime {
       | "anonymousEffectiveEndpoint"
       | "maxCacheEntries"
       | "storageNamespace"
+      | "fallbackLanguage"
+      | "onInvalidLanguage"
       | "now"
     >
   > & { fetch: typeof fetch };
+  /** Distinct unparseable language codes already reported; capped by MAX_WARNED_LANGUAGES. */
+  private readonly warnedInvalidLanguages = new Set<string>();
   private inFlight = new Map<string, Promise<LocaleRefreshResult>>();
   private anonymousInFlight = new Map<string, Promise<EffectiveLocale>>();
   private preferenceInFlight = new Map<string, Promise<boolean>>();
@@ -178,6 +200,18 @@ export class LocaleRuntime {
         "/auth/organization-locale/effective/",
       maxCacheEntries: config.maxCacheEntries ?? 8,
       storageNamespace: config.storageNamespace ?? DEFAULT_NAMESPACE,
+      // Strict on purpose: a misconfigured fallback must fail at construction, not silently
+      // on the first bad read.
+      fallbackLanguage: normalizeLanguage(
+        config.fallbackLanguage ?? FALLBACK_LANGUAGE,
+      ),
+      onInvalidLanguage:
+        config.onInvalidLanguage ??
+        ((language, fallback) => {
+          console.warn(
+            `envoy-ts-auth locale: invalid language code ${JSON.stringify(language)}; falling back to "${fallback}".`,
+          );
+        }),
       now: config.now ?? Date.now,
     };
   }
@@ -201,7 +235,7 @@ export class LocaleRuntime {
     language: string,
   ): Promise<LocaleCacheEnvelope | null> {
     const normalized = normalizeIdentity(identity);
-    const normalizedLanguage = normalizeLanguage(language);
+    const normalizedLanguage = this.normalizeLanguageLenient(language);
     const key = this.cacheKey(normalized, normalizedLanguage);
     const raw = await this.safeGet(key);
     if (!raw) return null;
@@ -228,7 +262,7 @@ export class LocaleRuntime {
     language: string,
   ): Promise<LocaleRefreshResult> {
     const normalized = normalizeIdentity(identity);
-    const normalizedLanguage = normalizeLanguage(language);
+    const normalizedLanguage = this.normalizeLanguageLenient(language);
     this.setActiveIdentity(normalized);
     const requestKey = this.cacheKey(normalized, normalizedLanguage);
     const existing = this.inFlight.get(requestKey);
@@ -348,7 +382,7 @@ export class LocaleRuntime {
     language: string,
     localeContextToken?: string | null,
   ): Promise<EffectiveLocale> {
-    const normalizedLanguage = normalizeLanguage(language);
+    const normalizedLanguage = this.normalizeLanguageLenient(language);
     const requestKey = `${normalizedLanguage}:${localeContextToken ?? ""}`;
     const existing = this.anonymousInFlight.get(requestKey);
     if (existing) return existing;
@@ -552,6 +586,33 @@ export class LocaleRuntime {
       return await this.config.storage.getItem(key);
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Read-path variant of `normalizeLanguage`. Callers such as i18n bridges can surface a
+   * bogus value (an empty string, a raw Accept-Language header, a server-supplied
+   * `organization_default_language`) that must not break rendering, so the read paths serve
+   * `fallbackLanguage` instead of throwing. Write paths (`setPreferredLanguage`) stay strict
+   * so a bad value never overwrites a stored preference.
+   *
+   * Because the throw was the only signal that identified the offending caller, every
+   * distinct bad value is reported once through `onInvalidLanguage`; the set is per-instance
+   * and capped so a high-cardinality caller cannot grow it without bound.
+   */
+  private normalizeLanguageLenient(language: string): string {
+    try {
+      return normalizeLanguage(language);
+    } catch {
+      const key = String(language);
+      if (!this.warnedInvalidLanguages.has(key)) {
+        if (this.warnedInvalidLanguages.size >= MAX_WARNED_LANGUAGES) {
+          this.warnedInvalidLanguages.clear();
+        }
+        this.warnedInvalidLanguages.add(key);
+        this.config.onInvalidLanguage(key, this.config.fallbackLanguage);
+      }
+      return this.config.fallbackLanguage;
     }
   }
 

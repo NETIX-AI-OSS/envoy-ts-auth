@@ -69,6 +69,18 @@ export type LocaleRuntimeConfig = {
     maxCacheEntries?: number;
     /** Storage namespace, useful when an app embeds multiple environments. */
     storageNamespace?: string;
+    /**
+     * Locale served when a read path is handed an unparseable language, default `"en"`.
+     * Set it to the deployment's own default so a misconfigured organization degrades to
+     * its own language rather than to English.
+     */
+    fallbackLanguage?: string;
+    /**
+     * Called once per distinct unparseable language code a read path receives. Defaults to
+     * `console.warn`; apps should route it to their error tracker, because this is the only
+     * signal left once the read paths stop throwing.
+     */
+    onInvalidLanguage?: (language: string, fallback: string) => void;
     now?: () => number;
 };
 export type LocaleRefreshResult = {
@@ -84,6 +96,8 @@ export type LocaleRefreshResult = {
  */
 export declare class LocaleRuntime {
     private readonly config;
+    /** Distinct unparseable language codes already reported; capped by MAX_WARNED_LANGUAGES. */
+    private readonly warnedInvalidLanguages;
     private inFlight;
     private anonymousInFlight;
     private preferenceInFlight;
@@ -126,6 +140,18 @@ export declare class LocaleRuntime {
     private readIndex;
     private writeIndex;
     private safeGet;
+    /**
+     * Read-path variant of `normalizeLanguage`. Callers such as i18n bridges can surface a
+     * bogus value (an empty string, a raw Accept-Language header, a server-supplied
+     * `organization_default_language`) that must not break rendering, so the read paths serve
+     * `fallbackLanguage` instead of throwing. Write paths (`setPreferredLanguage`) stay strict
+     * so a bad value never overwrites a stored preference.
+     *
+     * Because the throw was the only signal that identified the offending caller, every
+     * distinct bad value is reported once through `onInvalidLanguage`; the set is per-instance
+     * and capped so a high-cardinality caller cannot grow it without bound.
+     */
+    private normalizeLanguageLenient;
     private cacheKey;
     private pendingKey;
     private isMatchingEnvelope;
