@@ -104,9 +104,15 @@ describe("LocaleRuntime", () => {
         }),
     ).toThrow("required");
     const { runtime } = createRuntime(storage);
-    await expect(runtime.hydrate(identity, "not a locale")).rejects.toThrow(
-      "invalid language",
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(runtime.hydrate(identity, "not a locale")).resolves.toBeNull();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("invalid language code"),
     );
+    warn.mockRestore();
+    await expect(
+      runtime.setPreferredLanguage(identity, "not a locale"),
+    ).rejects.toThrow("invalid language");
   });
 
   it("checks health without authorization", async () => {

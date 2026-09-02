@@ -116,6 +116,9 @@ type PendingLanguage = {
 
 const DEFAULT_NAMESPACE = "envoy-ts-auth:locale:v1";
 
+/** Locale used when a caller supplies an unparseable language on a read path. */
+const FALLBACK_LANGUAGE = "en";
+
 /**
  * Framework-neutral organization locale coordinator.
  *
@@ -201,7 +204,7 @@ export class LocaleRuntime {
     language: string,
   ): Promise<LocaleCacheEnvelope | null> {
     const normalized = normalizeIdentity(identity);
-    const normalizedLanguage = normalizeLanguage(language);
+    const normalizedLanguage = normalizeLanguageLenient(language);
     const key = this.cacheKey(normalized, normalizedLanguage);
     const raw = await this.safeGet(key);
     if (!raw) return null;
@@ -228,7 +231,7 @@ export class LocaleRuntime {
     language: string,
   ): Promise<LocaleRefreshResult> {
     const normalized = normalizeIdentity(identity);
-    const normalizedLanguage = normalizeLanguage(language);
+    const normalizedLanguage = normalizeLanguageLenient(language);
     this.setActiveIdentity(normalized);
     const requestKey = this.cacheKey(normalized, normalizedLanguage);
     const existing = this.inFlight.get(requestKey);
@@ -348,7 +351,7 @@ export class LocaleRuntime {
     language: string,
     localeContextToken?: string | null,
   ): Promise<EffectiveLocale> {
-    const normalizedLanguage = normalizeLanguage(language);
+    const normalizedLanguage = normalizeLanguageLenient(language);
     const requestKey = `${normalizedLanguage}:${localeContextToken ?? ""}`;
     const existing = this.anonymousInFlight.get(requestKey);
     if (existing) return existing;
@@ -648,6 +651,30 @@ function normalizeLanguage(language: string): string {
     throw new Error("envoy-ts-auth locale: invalid language code.");
   }
   return normalized;
+}
+
+const warnedInvalidLanguages = new Set<string>();
+
+/**
+ * Read-path variant of `normalizeLanguage`: callers such as i18n bridges can
+ * surface a bogus value (empty string, raw Accept-Language header) that must
+ * not break rendering or flood error trackers, so we warn once per distinct
+ * bad value and serve the fallback locale instead of throwing. Write paths
+ * (`setPreferredLanguage`) stay strict so a bad value never overwrites a
+ * stored preference.
+ */
+function normalizeLanguageLenient(language: string): string {
+  try {
+    return normalizeLanguage(language);
+  } catch {
+    if (!warnedInvalidLanguages.has(language)) {
+      warnedInvalidLanguages.add(language);
+      console.warn(
+        `envoy-ts-auth locale: invalid language code ${JSON.stringify(language)}; falling back to "${FALLBACK_LANGUAGE}".`,
+      );
+    }
+    return FALLBACK_LANGUAGE;
+  }
 }
 
 function normalizeSegment(value: string, name: string): string {

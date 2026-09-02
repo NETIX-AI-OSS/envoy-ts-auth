@@ -11,6 +11,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- `LocaleRuntime` read paths (`hydrate`, `refreshEffective`,
+  `fetchAnonymousEffective`) no longer throw on an unparseable language code.
+  They warn once per distinct bad value and serve the `en` fallback locale,
+  so a misconfigured i18n bridge can no longer break rendering or flood error
+  trackers. `setPreferredLanguage` remains strict: a bad code still cannot
+  overwrite a stored preference.
+
 ## [1.5.0] — 2026-08-22
 
 ### Added

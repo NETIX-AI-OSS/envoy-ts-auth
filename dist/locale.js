@@ -29,6 +29,8 @@ function createAsyncStorageLocaleStorage(storage) {
     return storage;
 }
 const DEFAULT_NAMESPACE = "envoy-ts-auth:locale:v1";
+/** Locale used when a caller supplies an unparseable language on a read path. */
+const FALLBACK_LANGUAGE = "en";
 /**
  * Framework-neutral organization locale coordinator.
  *
@@ -85,7 +87,7 @@ class LocaleRuntime {
     hydrate(identity, language) {
         return __awaiter(this, void 0, void 0, function* () {
             const normalized = normalizeIdentity(identity);
-            const normalizedLanguage = normalizeLanguage(language);
+            const normalizedLanguage = normalizeLanguageLenient(language);
             const key = this.cacheKey(normalized, normalizedLanguage);
             const raw = yield this.safeGet(key);
             if (!raw)
@@ -112,7 +114,7 @@ class LocaleRuntime {
     refreshEffective(identity, language) {
         return __awaiter(this, void 0, void 0, function* () {
             const normalized = normalizeIdentity(identity);
-            const normalizedLanguage = normalizeLanguage(language);
+            const normalizedLanguage = normalizeLanguageLenient(language);
             this.setActiveIdentity(normalized);
             const requestKey = this.cacheKey(normalized, normalizedLanguage);
             const existing = this.inFlight.get(requestKey);
@@ -213,7 +215,7 @@ class LocaleRuntime {
      */
     fetchAnonymousEffective(language, localeContextToken) {
         return __awaiter(this, void 0, void 0, function* () {
-            const normalizedLanguage = normalizeLanguage(language);
+            const normalizedLanguage = normalizeLanguageLenient(language);
             const requestKey = `${normalizedLanguage}:${localeContextToken !== null && localeContextToken !== void 0 ? localeContextToken : ""}`;
             const existing = this.anonymousInFlight.get(requestKey);
             if (existing)
@@ -470,6 +472,27 @@ function normalizeLanguage(language) {
         throw new Error("envoy-ts-auth locale: invalid language code.");
     }
     return normalized;
+}
+const warnedInvalidLanguages = new Set();
+/**
+ * Read-path variant of `normalizeLanguage`: callers such as i18n bridges can
+ * surface a bogus value (empty string, raw Accept-Language header) that must
+ * not break rendering or flood error trackers, so we warn once per distinct
+ * bad value and serve the fallback locale instead of throwing. Write paths
+ * (`setPreferredLanguage`) stay strict so a bad value never overwrites a
+ * stored preference.
+ */
+function normalizeLanguageLenient(language) {
+    try {
+        return normalizeLanguage(language);
+    }
+    catch (_a) {
+        if (!warnedInvalidLanguages.has(language)) {
+            warnedInvalidLanguages.add(language);
+            console.warn(`envoy-ts-auth locale: invalid language code ${JSON.stringify(language)}; falling back to "${FALLBACK_LANGUAGE}".`);
+        }
+        return FALLBACK_LANGUAGE;
+    }
 }
 function normalizeSegment(value, name) {
     const normalized = value.trim();
