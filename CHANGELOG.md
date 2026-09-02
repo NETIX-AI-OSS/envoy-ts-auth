@@ -11,14 +11,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `LocaleRuntimeConfig.fallbackLanguage` (default `"en"`) -- the locale a read
+  path serves when it is handed an unparseable language code. Set it to the
+  deployment's own default so a misconfigured organization degrades to its own
+  language rather than to English. An unparseable value here throws at
+  construction.
+- `LocaleRuntimeConfig.onInvalidLanguage(language, fallback)` -- called once per
+  distinct bad code a read path receives, defaulting to `console.warn`. Route it
+  to your error tracker: now that the read paths no longer throw, this is the
+  only signal that identifies the caller supplying the bad value.
+
 ### Changed
 
 - `LocaleRuntime` read paths (`hydrate`, `refreshEffective`,
   `fetchAnonymousEffective`) no longer throw on an unparseable language code.
-  They warn once per distinct bad value and serve the `en` fallback locale,
-  so a misconfigured i18n bridge can no longer break rendering or flood error
+  They report once per distinct bad value and serve `fallbackLanguage`, so a
+  misconfigured i18n bridge can no longer break rendering or flood error
   trackers. `setPreferredLanguage` remains strict: a bad code still cannot
   overwrite a stored preference.
+- The reported-value set is per-runtime and capped at 32 entries, so a caller
+  emitting high-cardinality garbage cannot grow it without bound.
 
 ## [1.5.0] — 2026-08-22
 

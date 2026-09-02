@@ -115,6 +115,62 @@ describe("LocaleRuntime", () => {
     ).rejects.toThrow("invalid language");
   });
 
+  it("reports each distinct bad language once, through the configured reporter", async () => {
+    const onInvalidLanguage = vi.fn();
+    const { runtime } = createRuntime(new MemoryStorage(), vi.fn<typeof fetch>(), {
+      onInvalidLanguage,
+    });
+
+    await runtime.hydrate(identity, "not a locale");
+    await runtime.hydrate(identity, "not a locale");
+    await runtime.hydrate(identity, "also bad!");
+
+    // Deduped per distinct value, so the offending caller stays discoverable without a flood.
+    expect(onInvalidLanguage).toHaveBeenCalledTimes(2);
+    expect(onInvalidLanguage).toHaveBeenNthCalledWith(1, "not a locale", "en");
+    expect(onInvalidLanguage).toHaveBeenNthCalledWith(2, "also bad!", "en");
+  });
+
+  it("serves the configured fallback locale rather than always English", async () => {
+    const onInvalidLanguage = vi.fn();
+    const storage = new MemoryStorage();
+    const { runtime } = createRuntime(storage, vi.fn<typeof fetch>(), {
+      fallbackLanguage: "ar",
+      onInvalidLanguage,
+    });
+
+    await runtime.hydrate(identity, "not a locale");
+
+    // An Arabic-default organization degrades to Arabic, not to English.
+    expect(onInvalidLanguage).toHaveBeenCalledWith("not a locale", "ar");
+  });
+
+  it("rejects a fallback language that is itself unparseable, at construction", () => {
+    expect(() =>
+      createRuntime(new MemoryStorage(), vi.fn<typeof fetch>(), {
+        fallbackLanguage: "not a locale",
+      }),
+    ).toThrow("invalid language");
+  });
+
+  it("caps the reported-language set so a high-cardinality caller cannot grow it forever", async () => {
+    const onInvalidLanguage = vi.fn();
+    const { runtime } = createRuntime(new MemoryStorage(), vi.fn<typeof fetch>(), {
+      onInvalidLanguage,
+    });
+
+    for (let index = 0; index < 40; index += 1) {
+      await runtime.hydrate(identity, `bad language ${index}!`);
+    }
+    // 40 distinct values, one report each; the set cleared once at 32 rather than growing.
+    expect(onInvalidLanguage).toHaveBeenCalledTimes(40);
+
+    // After the clear, an already-seen value can be reported again -- bounded memory is the
+    // trade, and re-reporting is the harmless direction to err in.
+    await runtime.hydrate(identity, "bad language 39!");
+    expect(onInvalidLanguage).toHaveBeenCalledTimes(40);
+  });
+
   it("checks health without authorization", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response(200));
     const { runtime } = createRuntime(new MemoryStorage(), fetchMock);
