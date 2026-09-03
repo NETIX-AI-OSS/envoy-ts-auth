@@ -1,8 +1,12 @@
 packages:
   - '.'
 
+autoInstallPeers: false
+
 overrides:
+  brace-expansion: "5.0.9"
   electron-to-chromium: "1.5.376"
+  linkify-it: "5.0.2"
 
 allowBuilds:
   esbuild: true
