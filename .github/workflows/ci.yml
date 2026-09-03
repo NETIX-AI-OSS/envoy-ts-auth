@@ -10,7 +10,7 @@ permissions:
   contents: read
 jobs:
   build-and-test:
-    runs-on: build-only
+    runs-on: self-hosted
 
     steps:
       - uses: actions/checkout@v4
