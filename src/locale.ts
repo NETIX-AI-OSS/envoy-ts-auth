@@ -221,7 +221,7 @@ export class LocaleRuntime {
     try {
       const response = await this.config.fetch(
         this.url(this.config.healthEndpoint),
-        { method: "GET" },
+        { method: "GET", credentials: "omit" },
       );
       return response.ok;
     } catch {
@@ -354,6 +354,7 @@ export class LocaleRuntime {
           this.url(this.config.preferenceEndpoint),
           {
             method: "PATCH",
+            credentials: "omit",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
@@ -409,6 +410,7 @@ export class LocaleRuntime {
     if (localeContextToken) headers["X-Locale-Context"] = localeContextToken;
     const response = await this.config.fetch(url.toString(), {
       method: "GET",
+      credentials: "omit",
       headers,
     });
     if (!response.ok) throw httpError("anonymous locale", response.status);
@@ -488,6 +490,7 @@ export class LocaleRuntime {
     try {
       const response = await this.config.fetch(url.toString(), {
         method: "GET",
+        credentials: "omit",
         headers,
       });
       if (response.status === 304 && cached) {

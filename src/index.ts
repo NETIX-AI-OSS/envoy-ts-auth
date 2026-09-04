@@ -268,6 +268,8 @@ class Auth {
         `${this.authConfig.AUTH_BASE_URL}${this.authConfig.LOGOUT_ENDPOINT}`,
         {
           method: "POST",
+          // Bearer-only flow: never let a platform cookie jar attach an ambient session.
+          credentials: "omit",
           headers,
           body: JSON.stringify(refreshToken ? { refresh: refreshToken } : {}),
         },
@@ -585,6 +587,7 @@ class Auth {
           `${this.authConfig.AUTH_BASE_URL}${this.authConfig.VERIFY_ENDPOINT}`,
           {
             method: "POST",
+            credentials: "omit",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
@@ -641,6 +644,7 @@ class Auth {
           `${this.authConfig.AUTH_BASE_URL}${this.authConfig.REFRESH_ENDPOINT}`,
           {
             method: "POST",
+            credentials: "omit",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${refreshToken}`,
@@ -741,6 +745,7 @@ class Auth {
             `${this.authConfig.AUTH_BASE_URL}${this.authConfig.VERIFY_ENDPOINT}`,
             {
               method: "POST",
+              credentials: "omit",
               headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`,
@@ -814,6 +819,7 @@ class Auth {
         `${this.authConfig.AUTH_BASE_URL}${this.authConfig.TOKEN_ENDPOINT}`,
         {
           method: "POST",
+          credentials: "omit",
           headers: {
             "Content-Type": "application/json",
           },

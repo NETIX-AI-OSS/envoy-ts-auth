@@ -85,7 +85,7 @@ class LocaleRuntime {
     checkHealth() {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const response = yield this.config.fetch(this.url(this.config.healthEndpoint), { method: "GET" });
+                const response = yield this.config.fetch(this.url(this.config.healthEndpoint), { method: "GET", credentials: "omit" });
                 return response.ok;
             }
             catch (_a) {
@@ -198,6 +198,7 @@ class LocaleRuntime {
                 try {
                     const response = yield this.config.fetch(this.url(this.config.preferenceEndpoint), {
                         method: "PATCH",
+                        credentials: "omit",
                         headers: {
                             "Content-Type": "application/json",
                             Authorization: `Bearer ${token}`,
@@ -249,6 +250,7 @@ class LocaleRuntime {
                 headers["X-Locale-Context"] = localeContextToken;
             const response = yield this.config.fetch(url.toString(), {
                 method: "GET",
+                credentials: "omit",
                 headers,
             });
             if (!response.ok)
@@ -328,6 +330,7 @@ class LocaleRuntime {
             try {
                 const response = yield this.config.fetch(url.toString(), {
                     method: "GET",
+                    credentials: "omit",
                     headers,
                 });
                 if (response.status === 304 && cached) {
