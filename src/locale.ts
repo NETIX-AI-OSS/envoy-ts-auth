@@ -191,13 +191,13 @@ export class LocaleRuntime {
       storage: config.storage,
       getAccessToken: config.getAccessToken,
       fetch: runtimeFetch,
-      healthEndpoint: config.healthEndpoint ?? "/healthz/",
+      healthEndpoint: config.healthEndpoint ?? "healthz/",
       effectiveEndpoint:
-        config.effectiveEndpoint ?? "/api/organization-locale/effective/",
-      preferenceEndpoint: config.preferenceEndpoint ?? "/auth/me/language/",
+        config.effectiveEndpoint ?? "api/organization-locale/effective/",
+      preferenceEndpoint: config.preferenceEndpoint ?? "auth/me/language/",
       anonymousEffectiveEndpoint:
         config.anonymousEffectiveEndpoint ??
-        "/auth/organization-locale/effective/",
+        "auth/organization-locale/effective/",
       maxCacheEntries: config.maxCacheEntries ?? 8,
       storageNamespace: config.storageNamespace ?? DEFAULT_NAMESPACE,
       // Strict on purpose: a misconfigured fallback must fail at construction, not silently
@@ -654,7 +654,14 @@ export class LocaleRuntime {
   }
 
   private url(path: string): string {
-    return new URL(path, `${this.config.apiBaseUrl}/`).toString();
+    // Endpoints resolve relative to the base so a path-prefixed base (e.g. a dev proxy's
+    // "/user-api") is preserved. Strip a leading slash — which would reset resolution to the
+    // origin and drop the prefix — and guarantee a trailing slash, since a missing one hits the
+    // backend's APPEND_SLASH 301 and a redirect can drop the Authorization header.
+    const relative = path.replace(/^\/+/, "");
+    const [pathname, query] = relative.split(/(?=[?#])/, 2) as [string, string?];
+    const withTrailingSlash = pathname.endsWith("/") ? pathname : `${pathname}/`;
+    return new URL(`${withTrailingSlash}${query ?? ""}`, `${this.config.apiBaseUrl}/`).toString();
   }
 
   private apiOrigin(): string {

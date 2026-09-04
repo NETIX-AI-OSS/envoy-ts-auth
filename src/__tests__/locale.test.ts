@@ -181,6 +181,34 @@ describe("LocaleRuntime", () => {
     });
   });
 
+  it("preserves a path prefix on the base URL instead of discarding it", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response(200));
+    // A base carrying a path segment (e.g. a dev proxy mount) must survive URL resolution;
+    // leading-slash endpoints used to reset to the origin and drop the "/user-api" prefix.
+    const { runtime } = createRuntime(new MemoryStorage(), fetchMock, {
+      apiBaseUrl: "https://host.example.com/user-api",
+    });
+    await expect(runtime.checkHealth()).resolves.toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://host.example.com/user-api/healthz/",
+      { method: "GET", credentials: "omit" },
+    );
+  });
+
+  it("guarantees a trailing slash so an override cannot hit the APPEND_SLASH redirect", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response(200));
+    // A no-trailing-slash override would 301 to the slashed form, and that redirect can drop
+    // the Authorization header — so url() appends the slash.
+    const { runtime } = createRuntime(new MemoryStorage(), fetchMock, {
+      healthEndpoint: "healthz",
+    });
+    await expect(runtime.checkHealth()).resolves.toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith("https://users.example.com/healthz/", {
+      method: "GET",
+      credentials: "omit",
+    });
+  });
+
   it("fetches, validates, persists, and hydrates an authenticated locale", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()

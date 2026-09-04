@@ -66,10 +66,10 @@ class LocaleRuntime {
             storage: config.storage,
             getAccessToken: config.getAccessToken,
             fetch: runtimeFetch,
-            healthEndpoint: (_d = config.healthEndpoint) !== null && _d !== void 0 ? _d : "/healthz/",
-            effectiveEndpoint: (_e = config.effectiveEndpoint) !== null && _e !== void 0 ? _e : "/api/organization-locale/effective/",
-            preferenceEndpoint: (_f = config.preferenceEndpoint) !== null && _f !== void 0 ? _f : "/auth/me/language/",
-            anonymousEffectiveEndpoint: (_g = config.anonymousEffectiveEndpoint) !== null && _g !== void 0 ? _g : "/auth/organization-locale/effective/",
+            healthEndpoint: (_d = config.healthEndpoint) !== null && _d !== void 0 ? _d : "healthz/",
+            effectiveEndpoint: (_e = config.effectiveEndpoint) !== null && _e !== void 0 ? _e : "api/organization-locale/effective/",
+            preferenceEndpoint: (_f = config.preferenceEndpoint) !== null && _f !== void 0 ? _f : "auth/me/language/",
+            anonymousEffectiveEndpoint: (_g = config.anonymousEffectiveEndpoint) !== null && _g !== void 0 ? _g : "auth/organization-locale/effective/",
             maxCacheEntries: (_h = config.maxCacheEntries) !== null && _h !== void 0 ? _h : 8,
             storageNamespace: (_j = config.storageNamespace) !== null && _j !== void 0 ? _j : DEFAULT_NAMESPACE,
             // Strict on purpose: a misconfigured fallback must fail at construction, not silently
@@ -470,7 +470,14 @@ class LocaleRuntime {
             isEffectiveLocale(envelope.locale, this.config.application));
     }
     url(path) {
-        return new URL(path, `${this.config.apiBaseUrl}/`).toString();
+        // Endpoints resolve relative to the base so a path-prefixed base (e.g. a dev proxy's
+        // "/user-api") is preserved. Strip a leading slash — which would reset resolution to the
+        // origin and drop the prefix — and guarantee a trailing slash, since a missing one hits the
+        // backend's APPEND_SLASH 301 and a redirect can drop the Authorization header.
+        const relative = path.replace(/^\/+/, "");
+        const [pathname, query] = relative.split(/(?=[?#])/, 2);
+        const withTrailingSlash = pathname.endsWith("/") ? pathname : `${pathname}/`;
+        return new URL(`${withTrailingSlash}${query !== null && query !== void 0 ? query : ""}`, `${this.config.apiBaseUrl}/`).toString();
     }
     apiOrigin() {
         return new URL(this.config.apiBaseUrl).origin;

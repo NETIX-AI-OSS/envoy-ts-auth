@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.1] — 2026-09-04
+
+- locale (fixed): endpoints resolve relative to `apiBaseUrl`, so a base URL that carries a path
+  prefix (e.g. a dev proxy's `/user-api`) is preserved instead of being discarded against the
+  origin. Endpoint defaults are now relative with trailing slashes; `LocaleRuntime.url()` strips a
+  leading slash (tolerating overrides) and guarantees a trailing slash, since a missing one hits
+  the backend's `APPEND_SLASH` 301 and a redirect can drop the `Authorization` header.
+  Absolute-origin bases resolve identically.
+
+
 ## [2.0.0] — 2026-08-26
 
 - Added the same-origin `BffAuth` browser client with credentialed requests and CSRF headers.
