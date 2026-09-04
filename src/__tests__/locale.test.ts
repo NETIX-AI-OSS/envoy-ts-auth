@@ -177,6 +177,7 @@ describe("LocaleRuntime", () => {
     await expect(runtime.checkHealth()).resolves.toBe(true);
     expect(fetchMock).toHaveBeenCalledWith("https://users.example.com/healthz/", {
       method: "GET",
+      credentials: "omit",
     });
   });
 
@@ -355,6 +356,11 @@ describe("LocaleRuntime", () => {
     expect(fetchMock.mock.calls[3]?.[1]?.body).toBe(
       JSON.stringify({ preferred_language: "es" }),
     );
+    // The PATCH is the one unsafe method here, and an ambient session cookie on it is what a
+    // native cookie jar would otherwise supply.
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init).toMatchObject({ credentials: "omit" });
+    }
     expect([...storage.values.keys()].some((key) => key.includes(":pending:"))).toBe(false);
   });
 

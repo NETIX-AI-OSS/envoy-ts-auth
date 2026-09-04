@@ -337,6 +337,77 @@ describe('Auth', () => {
 
   // ── Auth actions ──────────────────────────────────────────────────────────
 
+  // ── Cookie policy ─────────────────────────────────────────────────────────
+
+  describe('cookie policy', () => {
+    function stubFetch() {
+      const fetchMock = vi.fn().mockResolvedValue({
+        status: 200,
+        ok: true,
+        json: async () => ({ access: 'access-tok', refresh: 'refresh-tok' }),
+      })
+      global.fetch = fetchMock
+      return fetchMock
+    }
+
+    function expectEveryCallOmitsCookies(fetchMock: ReturnType<typeof vi.fn>) {
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(0)
+      for (const [, init] of fetchMock.mock.calls) {
+        expect(init).toMatchObject({ credentials: 'omit' })
+      }
+    }
+
+    it('omits credentials when obtaining tokens', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'setKeyValue').mockResolvedValue(undefined)
+      vi.spyOn(auth, 'redirectToSourcePage').mockReturnValue(undefined)
+      const fetchMock = stubFetch()
+
+      await auth.login('user', 'pass')
+
+      expectEveryCallOmitsCookies(fetchMock)
+    })
+
+    it('omits credentials when refreshing', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('refresh-tok')
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'setKeyValue').mockResolvedValue(undefined)
+      const fetchMock = stubFetch()
+
+      await auth.reviveToken()
+
+      expectEveryCallOmitsCookies(fetchMock)
+    })
+
+    it('omits credentials when verifying', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('access-tok')
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      const fetchMock = stubFetch()
+
+      await auth.verifyToken()
+
+      expectEveryCallOmitsCookies(fetchMock)
+    })
+
+    it('omits credentials when revoking on logout', async () => {
+      Auth.initialize({ ...baseConfig, LOGOUT_ENDPOINT: '/auth/logout/' })
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('access-tok')
+      vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+      vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+      const fetchMock = stubFetch()
+
+      await auth.logout()
+
+      expectEveryCallOmitsCookies(fetchMock)
+    })
+  })
+
   describe('login', () => {
     it('sets token cookies and returns true on success', async () => {
       Auth.initialize(baseConfig)
