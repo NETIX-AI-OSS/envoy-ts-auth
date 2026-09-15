@@ -60,7 +60,9 @@ Refresh token cookie time-to-live (in seconds)
 
 Defined in: [src/index.ts:127](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/index.ts#L127)
 
-Whether the cookie is secure
+Whether the session cookies carry `Secure` (and with it `SameSite=None`). `false` writes
+`SameSite=Lax` cookies without `Secure`, the only kind a plain-http page that is not
+localhost — a dev server reached at a LAN or VM address — can store. Keep `true` deployed.
 
 ***
 

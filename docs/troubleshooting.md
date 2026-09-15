@@ -28,8 +28,12 @@
 
 ## Cookies not persisted in browser
 
-- Confirm `COOKIE_SECURE` matches HTTPS deployment.
-- Ensure cookie `domain` is valid for the current host.
+- Confirm `COOKIE_SECURE` matches the page: `true` needs a secure context (https, localhost or
+  a loopback address); a dev server opened over plain http at a LAN or VM address needs `false`,
+  which switches the cookies to `SameSite=Lax` without `Secure`.
+- Ensure cookie `domain` is valid for the current host. A browser drops a cookie whose `Domain`
+  does not match the page host (for example `Domain=localhost` on `127.0.0.1`); an empty
+  `COOKIE_DOMAIN` writes a host-only cookie that is valid on any host.
 - Check browser policies around `SameSite=None` + secure cookies.
 
 ## Native storage issues

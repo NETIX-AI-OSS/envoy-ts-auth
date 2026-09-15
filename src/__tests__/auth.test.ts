@@ -164,6 +164,54 @@ describe('Auth', () => {
     })
   })
 
+  describe('cookie attributes', () => {
+    // js-cookie is loaded through require(), so the module mock above never reaches it; the
+    // serialized cookie string that lands on document.cookie is what browsers judge anyway.
+    function captureCookieWrites() {
+      const writes: string[] = []
+      vi.spyOn(document, 'cookie', 'set').mockImplementation((value) => {
+        writes.push(String(value))
+      })
+      return writes
+    }
+
+    it('writes Secure + SameSite=None cookies when COOKIE_SECURE is true', async () => {
+      const writes = captureCookieWrites()
+      Auth.initialize(baseConfig)
+      await Auth.getInstance().setKeyValue({ key: 'token', value: 'abc', maxAge: '86400' })
+
+      expect(writes).toHaveLength(1)
+      expect(writes[0]).toMatch(/^token=abc; /)
+      expect(writes[0]).toMatch(/; domain=\.example\.com/)
+      expect(writes[0]).toMatch(/; secure; sameSite=None/)
+    })
+
+    // A plain-http page that is not localhost cannot store Secure, and SameSite=None
+    // without Secure is rejected outright — Lax is what such a page can keep.
+    it('writes SameSite=Lax cookies without Secure when COOKIE_SECURE is false', async () => {
+      const writes = captureCookieWrites()
+      Auth.initialize({ ...baseConfig, COOKIE_SECURE: false, COOKIE_DOMAIN: '' })
+      await Auth.getInstance().setKeyValue({ key: 'token', value: 'abc' })
+
+      expect(writes).toHaveLength(1)
+      expect(writes[0]).toMatch(/^token=abc; /)
+      expect(writes[0]).toMatch(/; sameSite=Lax/)
+      expect(writes[0]).not.toMatch(/secure|domain=|None/)
+    })
+
+    it('removes cookies with the same attributes they were written with', async () => {
+      const writes = captureCookieWrites()
+      Auth.initialize({ ...baseConfig, COOKIE_SECURE: false, COOKIE_DOMAIN: '' })
+      await Auth.getInstance().clearCookies()
+
+      expect(writes).toHaveLength(2)
+      // js-cookie expires a removed cookie one day in the past.
+      expect(writes[0]).toMatch(/^token=; path=\/; sameSite=Lax; expires=/)
+      expect(writes[1]).toMatch(/^refresh=; path=\/; sameSite=Lax; expires=/)
+      expect(writes.join('\n')).not.toMatch(/secure|domain=|None/)
+    })
+  })
+
   // ── Token lifecycle ───────────────────────────────────────────────────────
 
   describe('getToken', () => {

@@ -22,7 +22,11 @@ export type AuthConfig = {
     COOKIE_TOKEN_TTL: string;
     /** Refresh token cookie time-to-live (in seconds) */
     COOKIE_REFRESH_TTL: string;
-    /** Whether the cookie is secure */
+    /**
+     * Whether the session cookies carry `Secure` (and with it `SameSite=None`). `false` writes
+     * `SameSite=Lax` cookies without `Secure`, the only kind a plain-http page that is not
+     * localhost — a dev server reached at a LAN or VM address — can store. Keep `true` deployed.
+     */
     COOKIE_SECURE: boolean;
     /** Domain for the cookie */
     COOKIE_DOMAIN: string;

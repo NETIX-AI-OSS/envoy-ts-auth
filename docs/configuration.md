@@ -6,7 +6,9 @@
 
 - `COOKIE_TOKEN_TTL`: access token TTL in seconds (string)
 - `COOKIE_REFRESH_TTL`: refresh token TTL in seconds (string)
-- `COOKIE_SECURE`: cookie secure flag
+- `COOKIE_SECURE`: `true` writes `Secure; SameSite=None` session cookies; `false` writes
+  `SameSite=Lax` cookies without `Secure`, the only kind a plain-http page that is not
+  localhost can store
 - `COOKIE_DOMAIN`: cookie domain
 - `BASE_DOMAIN`: base hostname allowed for redirect targets
 - `CURRENT_APP_DOMAIN`: current app hostname used when preserving redirects
@@ -27,7 +29,9 @@
 
 ## Recommended Defaults
 
-- Keep `COOKIE_SECURE: true` in production.
+- Keep `COOKIE_SECURE: true` in production. Set it to `false` only for a dev server opened over
+  plain http at an address other than localhost (a LAN or VM address): a browser stores a
+  `Secure` cookie only in a secure context, so the session would otherwise never persist.
 - Use explicit endpoint paths (for example `/auth/token/verify/`) instead of building strings in app code.
 - Ensure `LOGIN_PAGE_URL` and `LAUNCHPAD_PAGE_URL` are absolute URLs.
 - Keep `BASE_DOMAIN` and `CURRENT_APP_DOMAIN` as hostnames only, without protocol or path.
