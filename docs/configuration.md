@@ -4,8 +4,11 @@
 
 ## Required Fields
 
-- `COOKIE_TOKEN_TTL`: access token TTL in seconds (string)
-- `COOKIE_REFRESH_TTL`: refresh token TTL in seconds (string)
+- `COOKIE_TOKEN_TTL`: access token TTL in seconds (string). Set it to the access JWT's own
+  lifetime — a cookie that outlives the token buys nothing, and one that dies first forces a
+  refresh the token did not need.
+- `COOKIE_REFRESH_TTL`: refresh token TTL in seconds (string). Set it to the refresh token's
+  own lifetime, on the same reasoning.
 - `COOKIE_SECURE`: `true` writes `Secure; SameSite=None` session cookies (deployments);
   `false` writes plain `SameSite=Lax` cookies, which any page can store (local development
   over plain http)
@@ -44,8 +47,8 @@
 
 ```ts
 const config = {
-  COOKIE_TOKEN_TTL: "300",
-  COOKIE_REFRESH_TTL: "86400",
+  COOKIE_TOKEN_TTL: "43200",
+  COOKIE_REFRESH_TTL: "172800",
   COOKIE_SECURE: true,
   COOKIE_DOMAIN: ".example.com",
   BASE_DOMAIN: "example.com",

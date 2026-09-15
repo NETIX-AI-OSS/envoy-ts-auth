@@ -24,8 +24,8 @@ npm i github:NETIX-AI-OSS/envoy-ts-auth
 import { Auth, type AuthConfig } from "envoy-ts-auth";
 
 const config: AuthConfig = {
-  COOKIE_TOKEN_TTL: "300",
-  COOKIE_REFRESH_TTL: "86400",
+  COOKIE_TOKEN_TTL: "43200",
+  COOKIE_REFRESH_TTL: "172800",
   COOKIE_SECURE: true,
   COOKIE_DOMAIN: ".example.com",
   BASE_DOMAIN: "example.com",

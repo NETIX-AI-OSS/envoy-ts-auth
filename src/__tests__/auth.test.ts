@@ -52,6 +52,27 @@ function stubLocation(url: string) {
   return locationMock
 }
 
+// A real browser keeps reporting the old href until the navigation commits, so `href` reads
+// back unchanged here and every assignment is recorded instead.
+function stubLocationRecordingHref(url: string) {
+  const parsed = new URL(url)
+  const assignments: string[] = []
+  const locationMock = {
+    get href() {
+      return parsed.toString()
+    },
+    set href(value: string) {
+      assignments.push(value)
+    },
+    search: parsed.search,
+    hostname: parsed.hostname,
+    replace: vi.fn(),
+  } as unknown as Location
+
+  vi.stubGlobal('location', locationMock)
+  return assignments
+}
+
 describe('Auth', () => {
   let retrySleep: ReturnType<typeof vi.fn>
 
@@ -267,21 +288,23 @@ describe('Auth', () => {
       expect(global.fetch).toHaveBeenCalledTimes(2)
     })
 
-    it('fails closed when verify and refresh calls fail at the network layer', async () => {
+    it('withholds the token but keeps the session when verify and refresh fail at the network layer', async () => {
       Auth.initialize(baseConfig)
       const auth = Auth.getInstance()
       vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
       vi.spyOn(auth, 'getKeyValue')
         .mockResolvedValueOnce('stored-token')
         .mockResolvedValueOnce('stored-refresh')
-      vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+      const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
       const clearCookies = vi.spyOn(auth, 'clearCookies')
       // Safari's failed-fetch wording; a rejection here becomes unhandled.
       global.fetch = vi.fn().mockRejectedValue(new TypeError('Load failed'))
 
       await expect(auth.getToken()).resolves.toBeNull()
       expect(global.fetch).toHaveBeenCalledTimes(2)
-      expect(clearCookies).toHaveBeenCalled()
+      // An offline browser says nothing about the refresh token, which may be good for 48h.
+      expect(clearCookies).not.toHaveBeenCalled()
+      expect(redirect).not.toHaveBeenCalled()
     })
 
     it('does not reread an unverified token after refresh fails', async () => {
@@ -317,21 +340,29 @@ describe('Auth', () => {
   })
 
   describe('reviveToken', () => {
-    it('returns failure status when no refresh token is present', async () => {
+    it('ends the session and redirects when no refresh token is present', async () => {
       Auth.initialize(baseConfig)
       const auth = Auth.getInstance()
       vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(false)
+      const clearCookies = vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+      const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
 
       expect(await auth.reviveToken()).toMatchObject({ status: 'failed' })
+      expect(clearCookies).toHaveBeenCalled()
+      expect(redirect).toHaveBeenCalled()
     })
 
-    it('returns failure when refresh token value is null', async () => {
+    it('ends the session and redirects when the refresh token value is null', async () => {
       Auth.initialize(baseConfig)
       const auth = Auth.getInstance()
       vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
       vi.spyOn(auth, 'getKeyValue').mockResolvedValue(null)
+      const clearCookies = vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+      const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
 
       expect(await auth.reviveToken()).toMatchObject({ status: 'failed' })
+      expect(clearCookies).toHaveBeenCalled()
+      expect(redirect).toHaveBeenCalled()
     })
 
     it('updates access token on successful refresh', async () => {
@@ -372,16 +403,193 @@ describe('Auth', () => {
       )
     })
 
-    it('clears the entire session when refresh is rejected', async () => {
+    // The refresh path used to re-pin a refreshed token to a hardcoded "300", so a rotated
+    // token expired in 5 minutes while the same token from login lasted the configured 12h.
+    it('writes the configured token TTL, matching what login writes', async () => {
+      Auth.initialize({ ...baseConfig, COOKIE_TOKEN_TTL: '43200' })
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('my-refresh-token')
+      vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+      vi.spyOn(auth, 'redirectToSourcePage').mockReturnValue(undefined)
+      const setKeyValue = vi.spyOn(auth, 'setKeyValue').mockResolvedValue(undefined)
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ access: 'new-access-token', refresh: 'new-refresh-token' }),
+      })
+
+      await auth.reviveToken()
+      await auth.login('user', 'pass')
+
+      const tokenWrites = setKeyValue.mock.calls
+        .map(([data]) => data)
+        .filter((data) => data.key === 'token')
+      expect(tokenWrites).toHaveLength(2)
+      expect(tokenWrites.map((write) => write.maxAge)).toEqual(['43200', '43200'])
+    })
+
+    it('keeps a refresh token the auth service never judged when it answers 503', async () => {
       Auth.initialize(baseConfig)
       const auth = Auth.getInstance()
       vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
-      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('bad-refresh-token')
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('unjudged-refresh-token')
       const clearCookies = vi.spyOn(auth, 'clearCookies')
+      const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
       global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 })
 
       expect(await auth.reviveToken()).toEqual({ status: 503 })
-      expect(clearCookies).toHaveBeenCalled()
+      expect(clearCookies).not.toHaveBeenCalled()
+      expect(redirect).not.toHaveBeenCalled()
+    })
+  })
+
+  // ── Session-expiry classification ─────────────────────────────────────────
+
+  // Terminal: the credential is gone or the server rejected it -> clear and redirect.
+  // Transient: the server or network failed -> keep the credential, never redirect.
+  describe('failure classification', () => {
+    function arrangeWithRefreshToken() {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+      vi.spyOn(auth, 'getKeyValue').mockResolvedValue('stored-credential')
+      const clearCookies = vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+      const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+      return { auth, clearCookies, redirect }
+    }
+
+    describe('reviveToken', () => {
+      it.each([401, 403, 404])(
+        'ends the session when the refresh endpoint answers %i',
+        async (status) => {
+          const { auth, clearCookies, redirect } = arrangeWithRefreshToken()
+          global.fetch = vi.fn().mockResolvedValue({ ok: false, status })
+
+          expect(await auth.reviveToken()).toMatchObject({ status })
+          expect(clearCookies).toHaveBeenCalled()
+          expect(redirect).toHaveBeenCalled()
+        }
+      )
+
+      it('ends the session when a 200 refresh carries no access token', async () => {
+        const { auth, clearCookies, redirect } = arrangeWithRefreshToken()
+        global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) })
+
+        expect(await auth.reviveToken()).toMatchObject({ status: 'failed' })
+        expect(clearCookies).toHaveBeenCalled()
+        expect(redirect).toHaveBeenCalled()
+      })
+
+      it.each([429, 500, 502, 503])(
+        'keeps the session when the refresh endpoint answers %i',
+        async (status) => {
+          const { auth, clearCookies, redirect } = arrangeWithRefreshToken()
+          global.fetch = vi.fn().mockResolvedValue({ ok: false, status })
+
+          expect(await auth.reviveToken()).toEqual({ status })
+          expect(clearCookies).not.toHaveBeenCalled()
+          expect(redirect).not.toHaveBeenCalled()
+        }
+      )
+
+      it('keeps the session when the refresh call throws', async () => {
+        const { auth, clearCookies, redirect } = arrangeWithRefreshToken()
+        global.fetch = vi.fn().mockRejectedValue(new TypeError('Load failed'))
+
+        expect(await auth.reviveToken()).toMatchObject({ status: 'failed' })
+        expect(clearCookies).not.toHaveBeenCalled()
+        expect(redirect).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('verifyToken', () => {
+      it('ends the session when no refresh token is present', async () => {
+        Auth.initialize(baseConfig)
+        const auth = Auth.getInstance()
+        vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(false)
+        const clearCookies = vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+        const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+
+        expect(await auth.verifyToken()).toMatchObject({ status: 'failed' })
+        expect(clearCookies).toHaveBeenCalled()
+        expect(redirect).toHaveBeenCalled()
+      })
+
+      it.each([403, 404])(
+        'ends the session when verification answers %i',
+        async (status) => {
+          const { auth, clearCookies, redirect } = arrangeWithRefreshToken()
+          global.fetch = vi.fn().mockResolvedValue({ ok: false, status })
+
+          expect(await auth.verifyToken()).toMatchObject({ status })
+          expect(clearCookies).toHaveBeenCalled()
+          expect(redirect).toHaveBeenCalled()
+        }
+      )
+
+      it.each([429, 503])(
+        'keeps the session when verification answers %i',
+        async (status) => {
+          const { auth, clearCookies, redirect } = arrangeWithRefreshToken()
+          global.fetch = vi.fn().mockResolvedValue({ ok: false, status })
+
+          expect(await auth.verifyToken()).toEqual({ status })
+          expect(clearCookies).not.toHaveBeenCalled()
+          expect(redirect).not.toHaveBeenCalled()
+        }
+      )
+
+      it('keeps the session when the verify call throws', async () => {
+        const { auth, clearCookies, redirect } = arrangeWithRefreshToken()
+        global.fetch = vi.fn().mockRejectedValue(new TypeError('Load failed'))
+
+        expect(await auth.verifyToken()).toMatchObject({ status: 'failed' })
+        expect(clearCookies).not.toHaveBeenCalled()
+        expect(redirect).not.toHaveBeenCalled()
+      })
+
+      // An empty access-token cookie next to a live refresh token is a revivable state,
+      // not a reason to destroy the refresh token.
+      it('revives an empty access token instead of clearing the refresh token', async () => {
+        Auth.initialize(baseConfig)
+        const auth = Auth.getInstance()
+        vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
+        vi.spyOn(auth, 'getKeyValue')
+          .mockResolvedValueOnce('')
+          .mockResolvedValue('live-refresh-token')
+        vi.spyOn(auth, 'setKeyValue').mockResolvedValue(undefined)
+        const clearCookies = vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+        const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+        global.fetch = vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ access: 'new-access-token' }),
+        })
+
+        expect(await auth.verifyToken()).toEqual({ status: 'ok' })
+        expect(clearCookies).not.toHaveBeenCalled()
+        expect(redirect).not.toHaveBeenCalled()
+      })
+    })
+
+    // The reported bug: the refresh cookie ages out, getUser() answers null without ever
+    // calling /auth/me/, and the app renders "No Permission" because no 401 can arrive.
+    describe('expired browser session', () => {
+      it('redirects to login instead of resolving a user with no permissions', async () => {
+        Auth.initialize(baseConfig)
+        const auth = Auth.getInstance()
+        vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(false)
+        const clearCookies = vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+        const redirect = vi.spyOn(auth, 'redirectToLoginPage').mockReturnValue(undefined)
+        global.fetch = vi.fn()
+
+        expect(await auth.getUser()).toBeNull()
+        expect(await auth.getPermissions()).toBeUndefined()
+        expect(global.fetch).not.toHaveBeenCalled()
+        expect(clearCookies).toHaveBeenCalled()
+        expect(redirect).toHaveBeenCalled()
+      })
     })
   })
 
@@ -590,6 +798,97 @@ describe('Auth', () => {
       const redirected = new URL(locationMock.href)
       expect(redirected.origin + redirected.pathname).toBe('https://auth.example.com/login')
       expect(redirected.searchParams.has('continue')).toBe(false)
+    })
+
+    // universal-login points LOGIN_PAGE_URL at itself and sets no ON_LOGOUT, so an
+    // unconditional redirect would bounce it against its own URL forever.
+    it('does not redirect when the login page is the page already showing', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(false)
+      vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+      const assignments = stubLocationRecordingHref(
+        'https://auth.example.com/login?continue=https%3A%2F%2Fapp.example.com%2Fhome'
+      )
+
+      expect(await auth.getToken()).toBeNull()
+
+      expect(assignments).toEqual([])
+    })
+
+    it('matches the login page regardless of a trailing slash', async () => {
+      // The login app served from its own root, as universal-login is.
+      Auth.initialize({
+        ...baseConfig,
+        LOGIN_PAGE_URL: 'https://example.com/',
+        CURRENT_APP_DOMAIN: 'example.com',
+      })
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(false)
+      vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+      const assignments = stubLocationRecordingHref('https://example.com')
+
+      expect(await auth.getUser()).toBeNull()
+
+      expect(assignments).toEqual([])
+    })
+
+    it('redirects once when concurrent callers all find the session gone', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(false)
+      vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+      const assignments = stubLocationRecordingHref('https://app.example.com/workspace')
+
+      await Promise.all([auth.getToken(), auth.getUser(), auth.getPermissions()])
+
+      expect(assignments).toHaveLength(1)
+      const redirected = new URL(assignments[0])
+      expect(redirected.origin + redirected.pathname).toBe('https://auth.example.com/login')
+      expect(redirected.searchParams.get('continue')).toBe('https://app.example.com/workspace')
+    })
+
+    it('calls ON_LOGOUT once for concurrent callers', async () => {
+      const onLogout = vi.fn()
+      Auth.initialize({ ...baseConfig, ON_LOGOUT: onLogout })
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(false)
+      vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+
+      await Promise.all([auth.getToken(), auth.getUser()])
+
+      expect(onLogout).toHaveBeenCalledTimes(1)
+    })
+
+    // ON_LOGOUT does not navigate, so the instance outlives an expiry redirect and its
+    // de-duplication flag must not swallow the user asking to log out.
+    it('honours an explicit logout after a session-expiry redirect', async () => {
+      const onLogout = vi.fn()
+      Auth.initialize({ ...baseConfig, ON_LOGOUT: onLogout })
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(false)
+      const clearCookies = vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+
+      await auth.getToken()
+      expect(onLogout).toHaveBeenCalledTimes(1)
+
+      await auth.logout()
+
+      expect(onLogout).toHaveBeenCalledTimes(2)
+      expect(clearCookies).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not let an expiry redirect suppress the post-login navigation', async () => {
+      Auth.initialize(baseConfig)
+      const auth = Auth.getInstance()
+      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(false)
+      vi.spyOn(auth, 'clearCookies').mockResolvedValue(undefined)
+      const locationMock = stubLocation('https://app.example.com/workspace')
+
+      await auth.getToken()
+      auth.redirectToSourcePage()
+
+      expect(locationMock.replace).toHaveBeenCalledWith('https://app.example.com')
     })
 
     it('redirects to a validated continue URL on the base domain', () => {

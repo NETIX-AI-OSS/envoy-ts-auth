@@ -182,6 +182,8 @@ class Auth {
   private cachedUser: Record<string, any> | null = null;
   private tokenTimestamp: number | null = null;
   private userTimestamp: number | null = null;
+  // One involuntary redirect per dead session; deliberate login/logout re-arm it below.
+  private redirectInProgress = false;
   private static readonly CACHE_DURATION = 60 * 1000; // 1 minute
 
   private constructor(config: AuthConfig) {
@@ -245,6 +247,12 @@ class Auth {
     } else {
       Cookies.remove("token", cookieAttributes(this.authConfig));
     }
+  }
+
+  /** Terminal failure: the credential is gone or the server rejected it, so drop local state and send the user to log in. */
+  private async endSession() {
+    await this.clearCookies();
+    this.redirectToLoginPage();
   }
 
   /** Best-effort server revocation; local invalidation never depends on it. */
@@ -373,16 +381,20 @@ class Auth {
   }
 
   /**
-   * Redirects the user to the login page or calls ON_LOGOUT callback.
+   * Redirects the user to the login page or calls ON_LOGOUT callback; a no-op once a redirect is under way, or when the login page is the page already showing.
    * @throws {Error} If the Auth config is unavailable.
    */
   redirectToLoginPage() {
     if (!this.authConfig) throw AuthConfigUnavailableError();
+    if (this.redirectInProgress) return;
     if (this.authConfig.ON_LOGOUT instanceof Function) {
+      this.redirectInProgress = true;
       return this.authConfig.ON_LOGOUT();
     }
     if (!this.authConfig.NATIVE_PLATFORM && this.authConfig.LOGIN_PAGE_URL) {
       const loginUrl = new URL(this.authConfig.LOGIN_PAGE_URL);
+      // The login app points LOGIN_PAGE_URL at itself, so navigating from there would loop it.
+      if (isCurrentPage(loginUrl)) return;
       const redirectUrl = getValidatedRedirectUrl(
         location.href,
         this.authConfig,
@@ -396,6 +408,7 @@ class Auth {
         loginUrl.searchParams.set(REDIRECT_DESTINATION_URL, redirectUrl);
       }
 
+      this.redirectInProgress = true;
       location.href = loginUrl.toString();
     }
   }
@@ -462,8 +475,7 @@ class Auth {
           this.cachedUser = data;
           return data;
         } else if (isSessionError(response.status)) {
-          await this.clearCookies();
-          this.redirectToLoginPage();
+          await this.endSession();
         } else {
           // Not a session error (403/429/5xx): let caller render its own UI.
           return null;
@@ -596,8 +608,7 @@ class Auth {
         return token;
       }
       if (response?.status === 403) {
-        await this.clearCookies();
-        this.redirectToLoginPage();
+        await this.endSession();
         return null;
       }
     }
@@ -606,7 +617,7 @@ class Auth {
   }
 
   /**
-   * Attempts to revive the access token using the refresh token.
+   * Attempts to revive the access token using the refresh token; a missing or rejected refresh token ends the session and redirects, while a server or network failure keeps it for a later attempt.
    * @returns The new access token or error status/message.
    * @throws {Error} If the Auth config is unavailable.
    */
@@ -614,7 +625,8 @@ class Auth {
     if (!this.authConfig) throw AuthConfigUnavailableError();
     const isRefreshTokenPresent = await this.isKeyPresent("refresh");
     if (!isRefreshTokenPresent) {
-      await this.clearCookies();
+      // The common way a session ends; without a redirect callers read the null token as "no permissions".
+      await this.endSession();
       return {
         status: "failed",
         message: "Refresh token cookie, not found. Please log in",
@@ -622,7 +634,7 @@ class Auth {
     } else {
       const refreshToken = await this.getKeyValue("refresh");
       if (!refreshToken) {
-        await this.clearCookies();
+        await this.endSession();
         return {
           status: "failed",
           message: "Invalid refresh token",
@@ -651,7 +663,7 @@ class Auth {
               await this.setKeyValue({
                 key: "token",
                 value: data.access,
-                maxAge: this.authConfig.COOKIE_TOKEN_TTL || "300",
+                maxAge: this.authConfig.COOKIE_TOKEN_TTL,
               });
               if (data.refresh) {
                 await this.setKeyValue({
@@ -664,42 +676,43 @@ class Auth {
               this.tokenTimestamp = Date.now();
               return data.access;
             } else {
-              await this.clearCookies();
-              this.redirectToLoginPage();
+              await this.endSession();
               return { status: "failed", message: "Invalid refresh response" };
             }
           }
+          // The server or the network failed, not the session: keep a refresh token that may still be good for hours.
+          if (isRetryableStatus(response.status)) {
+            return { status: response.status };
+          }
           if (response.status === 401) {
-            await this.clearCookies();
-            this.redirectToLoginPage();
+            await this.endSession();
             return { status: response.status };
           }
           if (response?.status === 403) {
-            await this.clearCookies();
-            this.redirectToLoginPage();
+            await this.endSession();
             return { status: response?.status };
           }
           if (response.status === 404) {
-            await this.clearCookies();
+            await this.endSession();
             return {
               status: response?.status,
               message: "Cookie not found, please log in",
             };
           }
-          await this.clearCookies();
+          await this.endSession();
           return { status: response.status };
         }
       } catch (error: unknown) {
         const err = error as ErrorHandler;
         console.error("envoy-ts-auth-reviveToken error: ", err);
-        await this.clearCookies();
+        // Offline or a dropped connection says nothing about the refresh token; leave it alone.
         return { status: "failed", message: "Unable to refresh session" };
       }
     }
   }
 
   /**
-   * Verifies the current access token, revives if needed.
+   * Verifies the current access token, revives if needed; classifies failures exactly as {@link Auth.reviveToken} does.
    * @returns Status object indicating result.
    * @throws {Error} If the Auth config is unavailable.
    */
@@ -707,7 +720,7 @@ class Auth {
     if (!this.authConfig) throw AuthConfigUnavailableError();
     const isRefreshTokenPresent = await this.isKeyPresent("refresh");
     if (!isRefreshTokenPresent) {
-      await this.clearCookies();
+      await this.endSession();
       return {
         status: "failed",
         message: "Refresh token cookie, not found. Please log in",
@@ -725,7 +738,9 @@ class Auth {
       } else {
         const token = await this.getKeyValue("token");
         if (!token) {
-          await this.clearCookies();
+          // An empty access-token cookie is the same state as no cookie, and the refresh token is still here.
+          const revived = await this.reviveToken();
+          if (typeof revived === "string") return { status: "ok" };
           return {
             status: "failed",
             message: "Access token cookie not found. Please log in",
@@ -749,6 +764,10 @@ class Auth {
             this.tokenTimestamp = Date.now();
             return { status: "ok" };
           }
+          // Same rule as reviveToken: a failing server must not cost the user a live session.
+          if (isRetryableStatus(response.status)) {
+            return { status: response.status };
+          }
           if (response?.status === 401) {
             const revivedToken = await this.reviveToken();
             return typeof revivedToken === "string"
@@ -756,20 +775,18 @@ class Auth {
               : { status: response.status };
           }
           if (response?.status === 403) {
-            await this.clearCookies();
-            this.redirectToLoginPage();
+            await this.endSession();
             return { status: response?.status };
           }
           if (response?.status === 404) {
-            await this.clearCookies();
+            await this.endSession();
             return { status: response?.status };
           }
-          await this.clearCookies();
+          await this.endSession();
           return { status: response.status };
         } catch (error: unknown) {
           const err = error as ErrorHandler;
           console.error("envoy-ts-auth-verifyToken error: ", err);
-          await this.clearCookies();
           return { status: "failed" };
         }
       }
@@ -777,7 +794,7 @@ class Auth {
   }
 
   /**
-   * Logs out the user: clears local storage, best-effort revokes the server session, then redirects to login.
+   * Logs out the user: clears local storage, best-effort revokes the server session, then always redirects to login — even when an expiry redirect already fired.
    * @throws {Error} If the Auth config is unavailable.
    */
   async logout() {
@@ -793,6 +810,8 @@ class Auth {
     // Clear local creds first; a slow auth service can't stay logged in.
     await this.clearCookies();
     await this.revokeServerSession(accessToken, refreshToken);
+    // Asking to log out is deliberate, so it outranks the de-duplication of involuntary redirects.
+    this.redirectInProgress = false;
     this.redirectToLoginPage();
   }
 
@@ -846,6 +865,8 @@ class Auth {
             });
             this.cachedToken = data.access;
             this.tokenTimestamp = Date.now();
+            // A fresh session re-arms the redirect, for apps that handle ON_LOGOUT without navigating.
+            this.redirectInProgress = false;
             this.redirectToSourcePage();
             return true;
           } else return false;
@@ -1035,4 +1056,22 @@ function isSingleLevelSubdomain(hostname: string, baseDomain: string) {
 
 function normalizeHostname(hostname: string) {
   return hostname.trim().toLowerCase().replace(/^\.+/, "").replace(/\.+$/, "");
+}
+
+/** Whether `target` is the page already showing, compared on origin and path only — the query carries `continue`, which differs per visit. */
+function isCurrentPage(target: URL) {
+  try {
+    const current = new URL(location.href);
+    return (
+      current.origin === target.origin &&
+      stripTrailingSlash(current.pathname) === stripTrailingSlash(target.pathname)
+    );
+  } catch {
+    // No parseable location (native, SSR): the caller's own platform guards decide.
+    return false;
+  }
+}
+
+function stripTrailingSlash(pathname: string) {
+  return pathname.replace(/\/+$/, "");
 }

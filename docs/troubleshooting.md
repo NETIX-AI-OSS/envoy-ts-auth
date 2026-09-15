@@ -16,8 +16,10 @@
 - Validate `AUTH_BASE_URL` and endpoint paths.
 - Confirm token/refresh formats expected by backend.
 - Check CORS and cookie settings for browser usage.
-- Verification/refresh failures intentionally remove local credentials. This
-  fail-closed behavior requires a new login after auth-service outages.
+- A rejected credential (401/403/404, or a missing refresh token) intentionally
+  removes local credentials and redirects to login.
+- A failing auth service (429/5xx) or a network error leaves the credentials in
+  place and returns the status, so an outage no longer costs users their session.
 
 ## Logout does not revoke the backend token
 
