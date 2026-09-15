@@ -124,7 +124,12 @@ export type AuthConfig = {
   COOKIE_TOKEN_TTL: string;
   /** Refresh token cookie time-to-live (in seconds) */
   COOKIE_REFRESH_TTL: string;
-  /** Whether the cookie is secure */
+  /**
+   * Whether the session cookies carry `Secure` (and with it `SameSite=None`). Keep `true`
+   * deployed. `false` writes plain `SameSite=Lax` cookies, which any page can store — use it
+   * for local development over plain http, where a dev server opened at a LAN or VM address
+   * cannot store a `Secure` cookie at all.
+   */
   COOKIE_SECURE: boolean;
   /** Domain for the cookie */
   COOKIE_DOMAIN: string;
@@ -238,11 +243,7 @@ class Auth {
     if (this.authConfig.NATIVE_PLATFORM) {
       await AsyncStorage.removeItem("token");
     } else {
-      Cookies.remove("token", {
-        domain: this.authConfig.COOKIE_DOMAIN,
-        secure: this.authConfig.COOKIE_SECURE,
-        sameSite: "None",
-      });
+      Cookies.remove("token", cookieAttributes(this.authConfig));
     }
   }
 
@@ -350,9 +351,7 @@ class Auth {
       await AsyncStorage.setItem(data.key, data.value);
     } else {
       Cookies.set(data.key, data.value, {
-        domain: this.authConfig.COOKIE_DOMAIN,
-        secure: this.authConfig.COOKIE_SECURE,
-        sameSite: "None",
+        ...cookieAttributes(this.authConfig),
         expires: data.maxAge ? Number(data.maxAge) / (60 * 60 * 24) : undefined,
       });
     }
@@ -368,16 +367,8 @@ class Auth {
     if (this.authConfig.NATIVE_PLATFORM) {
       await AsyncStorage.multiRemove(["token", "refresh"]);
     } else {
-      Cookies.remove("token", {
-        domain: this.authConfig.COOKIE_DOMAIN,
-        secure: this.authConfig.COOKIE_SECURE,
-        sameSite: "None",
-      });
-      Cookies.remove("refresh", {
-        domain: this.authConfig.COOKIE_DOMAIN,
-        secure: this.authConfig.COOKIE_SECURE,
-        sameSite: "None",
-      });
+      Cookies.remove("token", cookieAttributes(this.authConfig));
+      Cookies.remove("refresh", cookieAttributes(this.authConfig));
     }
   }
 
@@ -928,6 +919,22 @@ export {
   type LocaleStorage,
   type LocaleTranslations,
 } from "./locale";
+
+/**
+ * The attributes every session cookie is written and removed with. `SameSite=None` is the shared-
+ * cookie default, but browsers accept it only together with `Secure`, and store a `Secure` cookie
+ * only in a secure context (https, localhost, loopback). So `COOKIE_SECURE: false` — local
+ * development over plain http — writes `SameSite=Lax` instead, which any page can store, a LAN
+ * or VM address included; `None` without `Secure` would be rejected outright and the session
+ * would silently never persist.
+ */
+function cookieAttributes(config: AuthConfig): Cookies.CookieAttributes {
+  return {
+    domain: config.COOKIE_DOMAIN,
+    secure: config.COOKIE_SECURE,
+    sameSite: config.COOKIE_SECURE ? "None" : "Lax",
+  };
+}
 
 function AuthConfigUnavailableError() {
   return new Error(ERROR_MESSAGES.CONFIG_UNAVAILABLE);

@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.2] — 2026-09-15
+
+- cookies (fixed): `COOKIE_SECURE: false` now writes `SameSite=Lax` session cookies without
+  `Secure`, and removes them with the same attributes. Every cookie used to be stamped
+  `SameSite=None`, which browsers accept only together with `Secure` — and store `Secure` cookies
+  only in a secure context — so a dev server opened over plain http at a LAN or VM address
+  (`http://10.0.0.1:3003`) could never persist a session: sign-in succeeded and the prompt came
+  straight back. `COOKIE_SECURE: true` is unchanged (`Secure; SameSite=None`).
+
 ## [2.0.1] — 2026-09-04
 
 - locale (fixed): endpoints resolve relative to `apiBaseUrl`, so a base URL that carries a path

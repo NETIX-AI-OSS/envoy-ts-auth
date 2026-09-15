@@ -148,11 +148,7 @@ class Auth {
                 yield async_storage_1.default.removeItem("token");
             }
             else {
-                Cookies.remove("token", {
-                    domain: this.authConfig.COOKIE_DOMAIN,
-                    secure: this.authConfig.COOKIE_SECURE,
-                    sameSite: "None",
-                });
+                Cookies.remove("token", cookieAttributes(this.authConfig));
             }
         });
     }
@@ -265,12 +261,7 @@ class Auth {
                 yield async_storage_1.default.setItem(data.key, data.value);
             }
             else {
-                Cookies.set(data.key, data.value, {
-                    domain: this.authConfig.COOKIE_DOMAIN,
-                    secure: this.authConfig.COOKIE_SECURE,
-                    sameSite: "None",
-                    expires: data.maxAge ? Number(data.maxAge) / (60 * 60 * 24) : undefined,
-                });
+                Cookies.set(data.key, data.value, Object.assign(Object.assign({}, cookieAttributes(this.authConfig)), { expires: data.maxAge ? Number(data.maxAge) / (60 * 60 * 24) : undefined }));
             }
         });
     }
@@ -287,16 +278,8 @@ class Auth {
                 yield async_storage_1.default.multiRemove(["token", "refresh"]);
             }
             else {
-                Cookies.remove("token", {
-                    domain: this.authConfig.COOKIE_DOMAIN,
-                    secure: this.authConfig.COOKIE_SECURE,
-                    sameSite: "None",
-                });
-                Cookies.remove("refresh", {
-                    domain: this.authConfig.COOKIE_DOMAIN,
-                    secure: this.authConfig.COOKIE_SECURE,
-                    sameSite: "None",
-                });
+                Cookies.remove("token", cookieAttributes(this.authConfig));
+                Cookies.remove("refresh", cookieAttributes(this.authConfig));
             }
         });
     }
@@ -843,6 +826,21 @@ var locale_1 = require("./locale");
 Object.defineProperty(exports, "LocaleRuntime", { enumerable: true, get: function () { return locale_1.LocaleRuntime; } });
 Object.defineProperty(exports, "createAsyncStorageLocaleStorage", { enumerable: true, get: function () { return locale_1.createAsyncStorageLocaleStorage; } });
 Object.defineProperty(exports, "createBrowserLocaleStorage", { enumerable: true, get: function () { return locale_1.createBrowserLocaleStorage; } });
+/**
+ * The attributes every session cookie is written and removed with. `SameSite=None` is the shared-
+ * cookie default, but browsers accept it only together with `Secure`, and store a `Secure` cookie
+ * only in a secure context (https, localhost, loopback). So `COOKIE_SECURE: false` — local
+ * development over plain http — writes `SameSite=Lax` instead, which any page can store, a LAN
+ * or VM address included; `None` without `Secure` would be rejected outright and the session
+ * would silently never persist.
+ */
+function cookieAttributes(config) {
+    return {
+        domain: config.COOKIE_DOMAIN,
+        secure: config.COOKIE_SECURE,
+        sameSite: config.COOKIE_SECURE ? "None" : "Lax",
+    };
+}
 function AuthConfigUnavailableError() {
     return new Error(settings_1.ERROR_MESSAGES.CONFIG_UNAVAILABLE);
 }
