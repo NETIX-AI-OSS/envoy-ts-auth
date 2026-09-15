@@ -37,6 +37,8 @@ flowchart TD
 - `redirectToLoginPage()`:
   - Uses `ON_LOGOUT` callback when provided.
   - Else redirects to `LOGIN_PAGE_URL`, adding `continue` only when the current URL is on the configured app host and passes redirect validation.
+  - No-ops once a redirect is under way, so concurrent callers produce one navigation, and no-ops when `LOGIN_PAGE_URL` is the page already showing (same origin and path), so a login app pointed at itself cannot loop.
+  - That de-duplication covers involuntary redirects only. `login()` and `logout()` re-arm it, so a deliberate `logout()` always redirects; `redirectToSourcePage()` and `isLoggedIn()` never consult it.
 - `redirectToSourcePage()`:
   - Uses `ON_LOGIN` callback when provided.
   - Else redirects to a validated `continue` URL or `LAUNCHPAD_PAGE_URL`.
@@ -53,7 +55,12 @@ flowchart TD
 ## Failure Model
 
 - A token is returned only after successful verification or refresh.
-- Verification/refresh failure clears access, refresh, token cache, and user cache.
+- Verification/refresh failures are classified before anything is discarded:
+  - Terminal (no refresh token, an empty refresh token, or a 401/403/404 from the
+    auth service) clears access, refresh, token cache, and user cache, then
+    redirects to login.
+  - Transient (429/5xx or a network error) keeps every credential and returns the
+    status, because a refresh token valid for hours has not been judged yet.
 - A business API `401` clears session state; a `403` remains an authorization
   result and does not force logout.
 - Server-side logout is optional and best effort. Backend services and Envoy

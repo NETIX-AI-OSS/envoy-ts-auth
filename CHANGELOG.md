@@ -42,8 +42,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   to your error tracker: now that the read paths no longer throw, this is the
   only signal that identifies the caller supplying the bad value.
 
+### Fixed
+
+- session expiry now redirects to login instead of rendering as missing permissions. When the
+  refresh cookie aged out of the browser, `reviveToken()` cleared the session without
+  redirecting, `getUser()` then answered `null` with no request at all, and consuming apps read
+  the resulting `undefined` permissions as a "No Permission" page. No 401 could ever arrive, so
+  neither this library's nor the apps' 401 redirect paths were reachable on the most common
+  expiry path. A missing refresh cookie, an empty one, and a `404` from the refresh endpoint are
+  now terminal alongside `401`/`403`: they clear the session and redirect.
+
 ### Changed
 
+- transient auth failures no longer destroy the session. A `429`/`5xx` from the refresh or verify
+  endpoint, or a network error, used to call `clearCookies()` — discarding a refresh token still
+  valid for up to 48h because the auth service had a bad minute. Those paths now keep every
+  credential and return the status for the caller to surface or retry. Only a credential the
+  server actually rejected is cleared.
+- `redirectToLoginPage()` is a no-op once a redirect is under way, so concurrent `getToken()` /
+  `getUser()` callers produce one navigation (or one `ON_LOGOUT` call) rather than one each, and
+  a no-op when `LOGIN_PAGE_URL` is the page already showing (same origin and path), so a login
+  app that points `LOGIN_PAGE_URL` at itself cannot bounce against its own URL. The flag
+  de-duplicates involuntary redirects only: `login()` and `logout()` re-arm it, so an explicit
+  `logout()` always redirects even when an expiry redirect already fired. That matters under
+  `ON_LOGOUT`, which runs without navigating and so leaves the instance alive.
+- `verifyToken()` with an empty access-token cookie next to a live refresh token now revives
+  instead of clearing both.
+- the refresh write path no longer falls back to a hardcoded `"300"` for the access-token cookie
+  TTL. It reads `COOKIE_TOKEN_TTL` exactly as the login write path always has, so a rotated token
+  can no longer be re-pinned to 5 minutes while the same token from login carries the configured
+  lifetime. Set both TTLs to the lifetimes the backend issues.
 - `LocaleRuntime` read paths (`hydrate`, `refreshEffective`,
   `fetchAnonymousEffective`) no longer throw on an unparseable language code.
   They report once per distinct bad value and serve `fallbackLanguage`, so a
