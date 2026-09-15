@@ -79,6 +79,7 @@ declare class Auth {
     private cachedUser;
     private tokenTimestamp;
     private userTimestamp;
+    private redirectInProgress;
     private static readonly CACHE_DURATION;
     private constructor();
     /**
@@ -100,6 +101,8 @@ declare class Auth {
     private clearSessionCache;
     /** Removes only the access token, retaining the refresh token for a single refresh attempt. */
     private clearAccessToken;
+    /** Terminal failure: the credential is gone or the server rejected it, so drop local state and send the user to log in. */
+    private endSession;
     /** Best-effort server revocation; local invalidation never depends on it. */
     private revokeServerSession;
     /**
@@ -133,7 +136,7 @@ declare class Auth {
      */
     clearCookies(): Promise<void>;
     /**
-     * Redirects the user to the login page or calls ON_LOGOUT callback.
+     * Redirects the user to the login page or calls ON_LOGOUT callback; a no-op once a redirect is under way, or when the login page is the page already showing.
      * @throws {Error} If the Auth config is unavailable.
      */
     redirectToLoginPage(): void;
@@ -180,13 +183,13 @@ declare class Auth {
      */
     getToken(): Promise<string | null>;
     /**
-     * Attempts to revive the access token using the refresh token.
+     * Attempts to revive the access token using the refresh token; a missing or rejected refresh token ends the session and redirects, while a server or network failure keeps it for a later attempt.
      * @returns The new access token or error status/message.
      * @throws {Error} If the Auth config is unavailable.
      */
     reviveToken(): Promise<any>;
     /**
-     * Verifies the current access token, revives if needed.
+     * Verifies the current access token, revives if needed; classifies failures exactly as {@link Auth.reviveToken} does.
      * @returns Status object indicating result.
      * @throws {Error} If the Auth config is unavailable.
      */
@@ -201,7 +204,7 @@ declare class Auth {
         message?: undefined;
     }>;
     /**
-     * Logs out the user: clears local storage, best-effort revokes the server session, then redirects to login.
+     * Logs out the user: clears local storage, best-effort revokes the server session, then always redirects to login — even when an expiry redirect already fired.
      * @throws {Error} If the Auth config is unavailable.
      */
     logout(): Promise<void>;
