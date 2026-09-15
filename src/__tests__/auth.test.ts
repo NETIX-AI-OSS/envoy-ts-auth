@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   Auth,
   isSessionError,
@@ -165,6 +165,8 @@ describe('Auth', () => {
   })
 
   describe('cookie attributes', () => {
+    afterEach(() => vi.restoreAllMocks())
+
     // js-cookie is loaded through require(), so the module mock above never reaches it; the
     // serialized cookie string that lands on document.cookie is what browsers judge anyway.
     function captureCookieWrites() {

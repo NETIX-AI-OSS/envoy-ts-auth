@@ -23,9 +23,10 @@ export type AuthConfig = {
     /** Refresh token cookie time-to-live (in seconds) */
     COOKIE_REFRESH_TTL: string;
     /**
-     * Whether the session cookies carry `Secure` (and with it `SameSite=None`). `false` writes
-     * `SameSite=Lax` cookies without `Secure`, the only kind a plain-http page that is not
-     * localhost — a dev server reached at a LAN or VM address — can store. Keep `true` deployed.
+     * Whether the session cookies carry `Secure` (and with it `SameSite=None`). Keep `true`
+     * deployed. `false` writes plain `SameSite=Lax` cookies, which any page can store — use it
+     * for local development over plain http, where a dev server opened at a LAN or VM address
+     * cannot store a `Secure` cookie at all.
      */
     COOKIE_SECURE: boolean;
     /** Domain for the cookie */

@@ -125,9 +125,10 @@ export type AuthConfig = {
   /** Refresh token cookie time-to-live (in seconds) */
   COOKIE_REFRESH_TTL: string;
   /**
-   * Whether the session cookies carry `Secure` (and with it `SameSite=None`). `false` writes
-   * `SameSite=Lax` cookies without `Secure`, the only kind a plain-http page that is not
-   * localhost — a dev server reached at a LAN or VM address — can store. Keep `true` deployed.
+   * Whether the session cookies carry `Secure` (and with it `SameSite=None`). Keep `true`
+   * deployed. `false` writes plain `SameSite=Lax` cookies, which any page can store — use it
+   * for local development over plain http, where a dev server opened at a LAN or VM address
+   * cannot store a `Secure` cookie at all.
    */
   COOKIE_SECURE: boolean;
   /** Domain for the cookie */
@@ -923,8 +924,8 @@ export {
  * The attributes every session cookie is written and removed with. `SameSite=None` is the shared-
  * cookie default, but browsers accept it only together with `Secure`, and store a `Secure` cookie
  * only in a secure context (https, localhost, loopback). So `COOKIE_SECURE: false` — local
- * development reached over plain http at a LAN or VM address — writes `SameSite=Lax` instead,
- * which such a page can store; `None` without `Secure` would be rejected outright and the session
+ * development over plain http — writes `SameSite=Lax` instead, which any page can store, a LAN
+ * or VM address included; `None` without `Secure` would be rejected outright and the session
  * would silently never persist.
  */
 function cookieAttributes(config: AuthConfig): Cookies.CookieAttributes {
