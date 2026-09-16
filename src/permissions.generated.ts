@@ -12,6 +12,7 @@ export const PERMISSIONS = [
   "ai-report-configure",
   "ai-report-run",
   "ai-report-view",
+  "ai-settings-manage",
   "alarm-rule-edit",
   "alarm-rule-view",
   "asset-capital-edit",
@@ -25,6 +26,7 @@ export const PERMISSIONS = [
   "asset-management-view",
   "asset-map-read",
   "asset-map-write",
+  "asset-scope-unrestricted",
   "asset-snag-edit",
   "asset-snag-transition",
   "asset-snag-view",
@@ -69,8 +71,13 @@ export const PERMISSIONS = [
   "control-rule-execute",
   "control-rule-view",
   "control-tag-write",
+  "copilot-action-execute",
+  "copilot-memory-write",
+  "copilot-schedule-write",
+  "copilot-skill-write",
   "corrective-work-order-edit",
   "corrective-work-order-view",
+  "dashboard-builder",
   "dashboards-billing",
   "dashboards-cafm-ai",
   "dashboards-chiller-management",
@@ -111,13 +118,18 @@ export const PERMISSIONS = [
   "facilities-surveillance",
   "fattal-hotels-demo",
   "fault-category-write",
+  "fault-suggestion-read",
   "faults-management-edit",
   "faults-management-view",
   "fdd-rule-edit",
   "fdd-rule-view",
   "fm-director",
   "fm-executive-director",
+  "gateway-commission",
   "gateway-config-apply",
+  "gateway-config-rollback",
+  "gateway-discovery-run",
+  "gateway-driver-command",
   "gateway-edit",
   "gateway-enrollment-admin",
   "gateway-tunnel-control",
@@ -125,6 +137,7 @@ export const PERMISSIONS = [
   "goods-received-note-delete",
   "goods-received-note-edit",
   "goods-received-note-view",
+  "haystack-credential-manage",
   "history",
   "inspection-template-edit",
   "inspection-template-view",
@@ -157,7 +170,9 @@ export const PERMISSIONS = [
   "notification-delete",
   "notification-edit",
   "notification-view",
+  "organization-report-template-configuration-edit",
   "performance-view",
+  "platform-template-write",
   "ppm-material-template-delete",
   "ppm-material-template-edit",
   "ppm-material-template-view",
@@ -213,8 +228,11 @@ export const PERMISSIONS = [
   "reactive-work-order-quotation-reassign",
   "reactive-work-order-quotation-view",
   "reactive-work-order-reopen",
+  "reactive-work-order-review",
   "reactive-work-order-view",
   "read",
+  "recommendation-read",
+  "recommendation-settle",
   "recruitment-requisition-approve",
   "recruitment-requisition-create",
   "recruitment-requisition-edit",
@@ -259,6 +277,8 @@ export const PERMISSIONS = [
   "service-request-tenant-edit",
   "service-request-tenant-view",
   "service-request-view",
+  "shift-delete",
+  "shift-edit",
   "staff-check-in-asset-bypass",
   "staff-check-in-biometric-bypass",
   "staff-check-in-geofence-bypass",
@@ -306,7 +326,15 @@ export const PERMISSION_SET: ReadonlySet<Permission> = new Set(PERMISSIONS)
 
 export const PERMISSIONS_BY_MODULE: Readonly<Record<string, readonly Permission[]>> = {
   "AI Assistant": [
-    "ai-assistant-view"
+    "ai-assistant-view",
+    "ai-settings-manage",
+    "copilot-action-execute",
+    "copilot-memory-write",
+    "copilot-schedule-write",
+    "copilot-skill-write",
+    "fault-suggestion-read",
+    "recommendation-read",
+    "recommendation-settle"
   ],
   "AI Reports": [
     "ai-health-view",
@@ -327,6 +355,9 @@ export const PERMISSIONS_BY_MODULE: Readonly<Record<string, readonly Permission[
   "Asset Class": [
     "asset-class-read",
     "asset-class-write"
+  ],
+  "Asset Management": [
+    "asset-scope-unrestricted"
   ],
   "Asset Map": [
     "asset-map-read",
@@ -369,11 +400,13 @@ export const PERMISSIONS_BY_MODULE: Readonly<Record<string, readonly Permission[
     "contract-quotation-configuration-view",
     "contract-report-template-configuration-edit",
     "contract-report-template-configuration-view",
-    "contract-view"
+    "contract-view",
+    "organization-report-template-configuration-edit"
   ],
   "Dashboards": [
     "cafm-my-workspace-home",
     "cafm-portfolio-home",
+    "dashboard-builder",
     "dashboards-billing",
     "dashboards-cafm-ai",
     "dashboards-chiller-management",
@@ -431,7 +464,11 @@ export const PERMISSIONS_BY_MODULE: Readonly<Record<string, readonly Permission[
     "edge-device-write",
     "edge-tag-read",
     "edge-tag-write",
+    "gateway-commission",
     "gateway-config-apply",
+    "gateway-config-rollback",
+    "gateway-discovery-run",
+    "gateway-driver-command",
     "gateway-edit",
     "gateway-enrollment-admin",
     "gateway-tunnel-control",
@@ -543,6 +580,9 @@ export const PERMISSIONS_BY_MODULE: Readonly<Record<string, readonly Permission[
     "scr-work-order-reopen",
     "scr-work-order-view"
   ],
+  "Platform": [
+    "platform-template-write"
+  ],
   "Platform Releases": [
     "release-admin",
     "release-edit",
@@ -578,6 +618,7 @@ export const PERMISSIONS_BY_MODULE: Readonly<Record<string, readonly Permission[
     "reactive-work-order-quotation-reassign",
     "reactive-work-order-quotation-view",
     "reactive-work-order-reopen",
+    "reactive-work-order-review",
     "reactive-work-order-view"
   ],
   "Report Generation": [
@@ -610,6 +651,8 @@ export const PERMISSIONS_BY_MODULE: Readonly<Record<string, readonly Permission[
     "recruitment-requisition-edit",
     "recruitment-requisition-view",
     "rrf-hr-process",
+    "shift-delete",
+    "shift-edit",
     "staff-check-in-asset-bypass",
     "staff-check-in-biometric-bypass",
     "staff-check-in-geofence-bypass",
@@ -658,6 +701,7 @@ export const PERMISSIONS_BY_MODULE: Readonly<Record<string, readonly Permission[
     "vendor-write"
   ],
   "haystack": [
+    "haystack-credential-manage",
     "history",
     "read",
     "write"
