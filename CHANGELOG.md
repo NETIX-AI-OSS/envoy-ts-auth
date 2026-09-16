@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.3] — 2026-09-16
+
+- Synchronize the canonical platform permission catalog, including organization configuration,
+  AI settings management, and explicit unrestricted asset scope.
+- Redirect expired sessions to login, retain credentials on transient authentication failures,
+  and deduplicate involuntary redirects.
+- Rebuild the distributed JavaScript and TypeScript declarations for these fixes.
+
 ## [2.0.2] — 2026-09-15
 
 - cookies (fixed): `COOKIE_SECURE: false` now writes `SameSite=Lax` session cookies without
