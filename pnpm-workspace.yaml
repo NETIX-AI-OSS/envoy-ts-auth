@@ -5,7 +5,7 @@ autoInstallPeers: false
 
 overrides:
   # Upstream fixes for the November 2026 Dependabot advisories.
-  "minimatch": "11.0.4"
+  "minimatch": "11.0.3"
   "markdown-it": "14.3.3"
   brace-expansion: "5.0.12"
   electron-to-chromium: "1.5.376"
