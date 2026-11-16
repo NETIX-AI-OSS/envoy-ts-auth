@@ -198,7 +198,7 @@ describe("LocaleRuntime", () => {
   it("guarantees a trailing slash so an override cannot hit the APPEND_SLASH redirect", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response(200));
     // A no-trailing-slash override would 301 to the slashed form, and that redirect can drop
-    // the Authorization header — so url() appends the slash.
+    // the Authorization header, so url() appends the slash.
     const { runtime } = createRuntime(new MemoryStorage(), fetchMock, {
       healthEndpoint: "healthz",
     });

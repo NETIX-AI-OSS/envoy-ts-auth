@@ -471,8 +471,8 @@ class LocaleRuntime {
     }
     url(path) {
         // Endpoints resolve relative to the base so a path-prefixed base (e.g. a dev proxy's
-        // "/user-api") is preserved. Strip a leading slash — which would reset resolution to the
-        // origin and drop the prefix — and guarantee a trailing slash, since a missing one hits the
+        // "/user-api") is preserved. Strip a leading slash, which would reset resolution to the
+        // origin and drop the prefix, and guarantee a trailing slash, since a missing one hits the
         // backend's APPEND_SLASH 301 and a redirect can drop the Authorization header.
         const relative = path.replace(/^\/+/, "");
         const [pathname, query] = relative.split(/(?=[?#])/, 2);

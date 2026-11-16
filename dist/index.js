@@ -49,7 +49,7 @@ function parseRetryAfterMs(response) {
     return Number.isFinite(seconds) ? seconds * 1000 : null;
 }
 /**
- * Fetch wrapper with jittered-exponential-backoff retries for transient failures — only call it for idempotent GET/HEAD/OPTIONS requests, never POST/PUT/PATCH/DELETE.
+ * Fetch wrapper with jittered-exponential-backoff retries for transient failures, only call it for idempotent GET/HEAD/OPTIONS requests, never POST/PUT/PATCH/DELETE.
  * @internal
  */
 function fetchIdempotentWithRetry(input, init, opts) {
@@ -87,7 +87,7 @@ function fetchIdempotentWithRetry(input, init, opts) {
     });
 }
 /**
- * Singleton class for authentication and authorization utilities — call {@link Auth.initialize} once, then {@link Auth.getInstance} for all methods.
+ * Singleton class for authentication and authorization utilities, call {@link Auth.initialize} once, then {@link Auth.getInstance} for all methods.
  * @category Auth
  */
 class Auth {
@@ -714,7 +714,7 @@ class Auth {
         });
     }
     /**
-     * Logs out the user: clears local storage, best-effort revokes the server session, then always redirects to login — even when an expiry redirect already fired.
+     * Logs out the user: clears local storage, best-effort revokes the server session, then always redirects to login, even when an expiry redirect already fired.
      * @throws {Error} If the Auth config is unavailable.
      */
     logout() {
@@ -835,7 +835,7 @@ Auth.instance = null;
 Auth.initialized = false;
 Auth.CACHE_DURATION = 60 * 1000; // 1 minute
 /**
- * Whether an HTTP status from a business API call signals a broken session — only 401 qualifies, not 403 (permission-denied, still authenticated).
+ * Whether an HTTP status from a business API call signals a broken session, only 401 qualifies, not 403 (permission-denied, still authenticated).
  * @param status HTTP status code from a business API response.
  * @category Auth
  */
@@ -854,8 +854,8 @@ Object.defineProperty(exports, "createBrowserLocaleStorage", { enumerable: true,
 /**
  * The attributes every session cookie is written and removed with. `SameSite=None` is the shared-
  * cookie default, but browsers accept it only together with `Secure`, and store a `Secure` cookie
- * only in a secure context (https, localhost, loopback). So `COOKIE_SECURE: false` — local
- * development over plain http — writes `SameSite=Lax` instead, which any page can store, a LAN
+ * only in a secure context (https, localhost, loopback). So `COOKIE_SECURE: false`, local
+ * development over plain http, writes `SameSite=Lax` instead, which any page can store, a LAN
  * or VM address included; `None` without `Secure` would be rejected outright and the session
  * would silently never persist.
  */
@@ -936,7 +936,7 @@ function isSingleLevelSubdomain(hostname, baseDomain) {
 function normalizeHostname(hostname) {
     return hostname.trim().toLowerCase().replace(/^\.+/, "").replace(/\.+$/, "");
 }
-/** Whether `target` is the page already showing, compared on origin and path only — the query carries `continue`, which differs per visit. */
+/** Whether `target` is the page already showing, compared on origin and path only, the query carries `continue`, which differs per visit. */
 function isCurrentPage(target) {
     try {
         const current = new URL(location.href);

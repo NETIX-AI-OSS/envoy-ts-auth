@@ -24,7 +24,7 @@ export type AuthConfig = {
     COOKIE_REFRESH_TTL: string;
     /**
      * Whether the session cookies carry `Secure` (and with it `SameSite=None`). Keep `true`
-     * deployed. `false` writes plain `SameSite=Lax` cookies, which any page can store — use it
+     * deployed. `false` writes plain `SameSite=Lax` cookies, which any page can store, use it
      * for local development over plain http, where a dev server opened at a LAN or VM address
      * cannot store a `Secure` cookie at all.
      */
@@ -68,7 +68,7 @@ export type AuthConfig = {
     ON_LOGOUT?: () => void;
 };
 /**
- * Singleton class for authentication and authorization utilities — call {@link Auth.initialize} once, then {@link Auth.getInstance} for all methods.
+ * Singleton class for authentication and authorization utilities, call {@link Auth.initialize} once, then {@link Auth.getInstance} for all methods.
  * @category Auth
  */
 declare class Auth {
@@ -204,7 +204,7 @@ declare class Auth {
         message?: undefined;
     }>;
     /**
-     * Logs out the user: clears local storage, best-effort revokes the server session, then always redirects to login — even when an expiry redirect already fired.
+     * Logs out the user: clears local storage, best-effort revokes the server session, then always redirects to login, even when an expiry redirect already fired.
      * @throws {Error} If the Auth config is unavailable.
      */
     logout(): Promise<void>;
@@ -225,7 +225,7 @@ declare class Auth {
 }
 export { Auth };
 /**
- * Whether an HTTP status from a business API call signals a broken session — only 401 qualifies, not 403 (permission-denied, still authenticated).
+ * Whether an HTTP status from a business API call signals a broken session, only 401 qualifies, not 403 (permission-denied, still authenticated).
  * @param status HTTP status code from a business API response.
  * @category Auth
  */

@@ -5,7 +5,7 @@
 ## Required Fields
 
 - `COOKIE_TOKEN_TTL`: access token TTL in seconds (string). Set it to the access JWT's own
-  lifetime — a cookie that outlives the token buys nothing, and one that dies first forces a
+  lifetime, a cookie that outlives the token buys nothing, and one that dies first forces a
   refresh the token did not need.
 - `COOKIE_REFRESH_TTL`: refresh token TTL in seconds (string). Set it to the refresh token's
   own lifetime, on the same reasoning.
