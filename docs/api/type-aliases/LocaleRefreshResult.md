@@ -8,7 +8,7 @@
 
 > **LocaleRefreshResult** = `object`
 
-Defined in: [src/locale.ts:102](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L102)
+Defined in: [src/locale.ts:114](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L114)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [src/locale.ts:102](https://github.com/NETIX-AI-OSS/envoy-ts-auth/bl
 
 > **locale**: [`EffectiveLocale`](EffectiveLocale.md)
 
-Defined in: [src/locale.ts:103](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L103)
+Defined in: [src/locale.ts:115](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L115)
 
 ***
 
@@ -24,7 +24,7 @@ Defined in: [src/locale.ts:103](https://github.com/NETIX-AI-OSS/envoy-ts-auth/bl
 
 > **notModified**: `boolean`
 
-Defined in: [src/locale.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L105)
+Defined in: [src/locale.ts:117](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L117)
 
 ***
 
@@ -32,4 +32,4 @@ Defined in: [src/locale.ts:105](https://github.com/NETIX-AI-OSS/envoy-ts-auth/bl
 
 > **source**: `"network"` \| `"cache"`
 
-Defined in: [src/locale.ts:104](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L104)
+Defined in: [src/locale.ts:116](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L116)

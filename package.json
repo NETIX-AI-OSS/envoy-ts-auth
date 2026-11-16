@@ -17,7 +17,7 @@
     "build": "tsc",
     "dev": "ts-node ./src/index.ts",
     "test": "vitest run",
-    "docs:api": "node scripts/generate-api-docs.mjs",
+    "docs:api": "node --test scripts/check-typedoc-glob.mjs && node scripts/generate-api-docs.mjs",
     "docs": "yarn docs:api"
   },
   "dependencies": {
