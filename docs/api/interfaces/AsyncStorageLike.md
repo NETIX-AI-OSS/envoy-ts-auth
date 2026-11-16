@@ -6,7 +6,7 @@
 
 # Interface: AsyncStorageLike
 
-Defined in: [src/locale.ts:45](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L45)
+Defined in: [src/locale.ts:45](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L45)
 
 React Native AsyncStorage-compatible subset.
 
@@ -16,7 +16,7 @@ React Native AsyncStorage-compatible subset.
 
 > **getItem**(`key`): `Promise`\<`string` \| `null`\>
 
-Defined in: [src/locale.ts:46](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L46)
+Defined in: [src/locale.ts:46](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L46)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [src/locale.ts:46](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blo
 
 > **removeItem**(`key`): `Promise`\<`void`\>
 
-Defined in: [src/locale.ts:48](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L48)
+Defined in: [src/locale.ts:48](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L48)
 
 #### Parameters
 
@@ -52,7 +52,7 @@ Defined in: [src/locale.ts:48](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blo
 
 > **setItem**(`key`, `value`): `Promise`\<`void`\>
 
-Defined in: [src/locale.ts:47](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L47)
+Defined in: [src/locale.ts:47](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L47)
 
 #### Parameters
 

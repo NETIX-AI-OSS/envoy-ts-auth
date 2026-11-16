@@ -31,8 +31,8 @@
 ## Cookies not persisted in browser
 
 - Confirm `COOKIE_SECURE` matches the page: `true` needs a secure context (https, localhost or
-  a loopback address); local development over plain http — in particular a dev server opened at
-  a LAN or VM address — needs `false`, which switches the cookies to `SameSite=Lax` without
+  a loopback address); local development over plain http, in particular a dev server opened at
+  a LAN or VM address, needs `false`, which switches the cookies to `SameSite=Lax` without
   `Secure`.
 - Ensure cookie `domain` is valid for the current host. A browser drops a cookie whose `Domain`
   does not match the page host (for example `Domain=localhost` on `127.0.0.1`); an empty

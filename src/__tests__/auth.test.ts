@@ -210,7 +210,7 @@ describe('Auth', () => {
     })
 
     // A plain-http page that is not localhost cannot store Secure, and SameSite=None
-    // without Secure is rejected outright — Lax is what such a page can keep.
+    // without Secure is rejected outright, Lax is what such a page can keep.
     it('writes SameSite=Lax cookies without Secure when COOKIE_SECURE is false', async () => {
       const writes = captureCookieWrites()
       Auth.initialize({ ...baseConfig, COOKIE_SECURE: false, COOKIE_DOMAIN: '' })

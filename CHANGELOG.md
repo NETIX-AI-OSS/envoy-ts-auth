@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.0.3] — 2026-09-16
+## [2.0.3], 2026-09-16
 
 - Synchronize the canonical platform permission catalog, including organization configuration,
   AI settings management, and explicit unrestricted asset scope.
@@ -8,16 +8,16 @@
   and deduplicate involuntary redirects.
 - Rebuild the distributed JavaScript and TypeScript declarations for these fixes.
 
-## [2.0.2] — 2026-09-15
+## [2.0.2], 2026-09-15
 
 - cookies (fixed): `COOKIE_SECURE: false` now writes `SameSite=Lax` session cookies without
   `Secure`, and removes them with the same attributes. Every cookie used to be stamped
-  `SameSite=None`, which browsers accept only together with `Secure` — and store `Secure` cookies
-  only in a secure context — so a dev server opened over plain http at a LAN or VM address
+  `SameSite=None`, which browsers accept only together with `Secure`, and store `Secure` cookies
+  only in a secure context, so a dev server opened over plain http at a LAN or VM address
   (`http://10.0.0.1:3003`) could never persist a session: sign-in succeeded and the prompt came
   straight back. `COOKIE_SECURE: true` is unchanged (`Secure; SameSite=None`).
 
-## [2.0.1] — 2026-09-04
+## [2.0.1], 2026-09-04
 
 - locale (fixed): endpoints resolve relative to `apiBaseUrl`, so a base URL that carries a path
   prefix (e.g. a dev proxy's `/user-api`) is preserved instead of being discarded against the
@@ -27,7 +27,7 @@
   Absolute-origin bases resolve identically.
 
 
-## [2.0.0] — 2026-08-26
+## [2.0.0], 2026-08-26
 
 - Added the same-origin `BffAuth` browser client with credentialed requests and CSRF headers.
 - Existing browser shared-cookie sessions remain the migration default so upgrades preserve one-point login; applications disable browser token APIs explicitly with `BROWSER_SESSION_MODE: "bff-only"` after their BFF cutover.
@@ -63,7 +63,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - transient auth failures no longer destroy the session. A `429`/`5xx` from the refresh or verify
-  endpoint, or a network error, used to call `clearCookies()` — discarding a refresh token still
+  endpoint, or a network error, used to call `clearCookies()`, discarding a refresh token still
   valid for up to 48h because the auth service had a bad minute. Those paths now keep every
   credential and return the status for the caller to surface or retry. Only a credential the
   server actually rejected is cleared.
@@ -89,7 +89,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The reported-value set is per-runtime and capped at 32 entries, so a caller
   emitting high-cardinality garbage cannot grow it without bound.
 
-## [1.5.0] — 2026-08-22
+## [1.5.0], 2026-08-22
 
 ### Added
 
@@ -98,7 +98,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   ETag revalidation, offline preference reconciliation, and universal-login
   locale-context support.
 
-## [1.4.0] — 2026-08-18
+## [1.4.0], 2026-08-18
 
 ### Added
 
@@ -113,7 +113,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   logout or account change in another tab cannot retain the previous subject.
 - Successful login and token rotation invalidate user/permission caches.
 
-## [1.4.13] — OSS Public Release Prep
+## [1.4.13], OSS Public Release Prep
 
 ### Added
 - OSS-focused README with Mermaid diagrams (auth state model, token workflow, storage strategy).

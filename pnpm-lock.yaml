@@ -12,6 +12,9 @@ overrides:
   linkify-it: 5.0.2
   vite: 8.3.5
 
+patchedDependencies:
+  typedoc@0.28.20: f4dc13328893e67739e1927d0686ab7b7d15290167e50c6bb413596dc7000977
+
 importers:
 
   .:
@@ -37,10 +40,10 @@ importers:
         version: 10.9.2(@types/node@26.6.6)(typescript@6.0.3)
       typedoc:
         specifier: ^0.28.20
-        version: 0.28.20(typescript@6.0.3)
+        version: 0.28.20(patch_hash=f4dc13328893e67739e1927d0686ab7b7d15290167e50c6bb413596dc7000977)(typescript@6.0.3)
       typedoc-plugin-markdown:
         specifier: ^4.14.1
-        version: 4.14.1(typedoc@0.28.20(typescript@6.0.3))
+        version: 4.14.1(typedoc@0.28.20(patch_hash=f4dc13328893e67739e1927d0686ab7b7d15290167e50c6bb413596dc7000977)(typescript@6.0.3))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -586,6 +589,7 @@ packages:
 
   tldts-core@7.4.20:
     resolution: {integrity: sha512-C630TWXZCZmLq0F2bW4QqwnaaxCQ/svpAqvJwnC4JvgEM5ohhBnGsEzTLSOXcN+xjz+kEaHS5uoWIw2klnqd0A==}
+    deprecated: Partial release, see https://github.com/remusao/tldts/issues/2735. Use >=7.4.22.
 
   tldts@7.4.19:
     resolution: {integrity: sha512-48dH6aSpQnpbzDUc4vIQZ1VjB8tkK+e8c1yx05/SZK+rkssgjEOlxDd/yU8/a4vGYQ9vRgJr9dwMq9TJ0b3X2Q==}
@@ -1232,11 +1236,11 @@ snapshots:
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
 
-  typedoc-plugin-markdown@4.14.1(typedoc@0.28.20(typescript@6.0.3)):
+  typedoc-plugin-markdown@4.14.1(typedoc@0.28.20(patch_hash=f4dc13328893e67739e1927d0686ab7b7d15290167e50c6bb413596dc7000977)(typescript@6.0.3)):
     dependencies:
-      typedoc: 0.28.20(typescript@6.0.3)
+      typedoc: 0.28.20(patch_hash=f4dc13328893e67739e1927d0686ab7b7d15290167e50c6bb413596dc7000977)(typescript@6.0.3)
 
-  typedoc@0.28.20(typescript@6.0.3):
+  typedoc@0.28.20(patch_hash=f4dc13328893e67739e1927d0686ab7b7d15290167e50c6bb413596dc7000977)(typescript@6.0.3):
     dependencies:
       '@gerrit0/mini-shiki': 3.23.0
       lunr: 2.3.9

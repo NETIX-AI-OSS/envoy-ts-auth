@@ -11,10 +11,13 @@
 
 ## Other
 
+- [BffAuth](classes/BffAuth.md)
 - [LocaleRuntime](classes/LocaleRuntime.md)
 - [AsyncStorageLike](interfaces/AsyncStorageLike.md)
 - [BrowserStorageLike](interfaces/BrowserStorageLike.md)
 - [LocaleStorage](interfaces/LocaleStorage.md)
+- [BffAuthConfig](type-aliases/BffAuthConfig.md)
+- [BffSession](type-aliases/BffSession.md)
 - [EffectiveLocale](type-aliases/EffectiveLocale.md)
 - [LocaleCacheEnvelope](type-aliases/LocaleCacheEnvelope.md)
 - [LocaleIdentity](type-aliases/LocaleIdentity.md)

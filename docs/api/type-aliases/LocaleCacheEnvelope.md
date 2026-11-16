@@ -8,7 +8,7 @@
 
 > **LocaleCacheEnvelope** = `object`
 
-Defined in: [src/locale.ts:25](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L25)
+Defined in: [src/locale.ts:25](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L25)
 
 Persisted locale payload. Identity fields are repeated to fail closed on bad keys.
 
@@ -18,7 +18,7 @@ Persisted locale payload. Identity fields are repeated to fail closed on bad key
 
 > **apiOrigin**: `string`
 
-Defined in: [src/locale.ts:27](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L27)
+Defined in: [src/locale.ts:27](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L27)
 
 ***
 
@@ -26,7 +26,7 @@ Defined in: [src/locale.ts:27](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blo
 
 > **application**: `string`
 
-Defined in: [src/locale.ts:28](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L28)
+Defined in: [src/locale.ts:28](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L28)
 
 ***
 
@@ -34,7 +34,7 @@ Defined in: [src/locale.ts:28](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blo
 
 > **etag**: `string` \| `null`
 
-Defined in: [src/locale.ts:32](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L32)
+Defined in: [src/locale.ts:32](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L32)
 
 ***
 
@@ -42,7 +42,7 @@ Defined in: [src/locale.ts:32](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blo
 
 > **fetchedAt**: `number`
 
-Defined in: [src/locale.ts:33](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L33)
+Defined in: [src/locale.ts:33](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L33)
 
 ***
 
@@ -50,7 +50,7 @@ Defined in: [src/locale.ts:33](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blo
 
 > **language**: `string`
 
-Defined in: [src/locale.ts:31](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L31)
+Defined in: [src/locale.ts:31](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L31)
 
 ***
 
@@ -58,7 +58,7 @@ Defined in: [src/locale.ts:31](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blo
 
 > **locale**: [`EffectiveLocale`](EffectiveLocale.md)
 
-Defined in: [src/locale.ts:34](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L34)
+Defined in: [src/locale.ts:34](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L34)
 
 ***
 
@@ -66,7 +66,7 @@ Defined in: [src/locale.ts:34](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blo
 
 > **organizationId**: `string`
 
-Defined in: [src/locale.ts:30](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L30)
+Defined in: [src/locale.ts:30](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L30)
 
 ***
 
@@ -74,7 +74,7 @@ Defined in: [src/locale.ts:30](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blo
 
 > **schemaVersion**: `1`
 
-Defined in: [src/locale.ts:26](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L26)
+Defined in: [src/locale.ts:26](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L26)
 
 ***
 
@@ -82,4 +82,4 @@ Defined in: [src/locale.ts:26](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blo
 
 > **userId**: `string`
 
-Defined in: [src/locale.ts:29](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/98d0dbc4081c38ff58de5aebb52d5f4e72e595aa/src/locale.ts#L29)
+Defined in: [src/locale.ts:29](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L29)
