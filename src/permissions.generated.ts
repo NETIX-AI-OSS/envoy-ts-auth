@@ -141,7 +141,6 @@ export const PERMISSIONS = [
   "gateway-driver-command",
   "gateway-edit",
   "gateway-enrollment-admin",
-  "gateway-tunnel-control",
   "gateway-view",
   "goods-received-note-delete",
   "goods-received-note-edit",
@@ -489,7 +488,6 @@ export const PERMISSIONS_BY_MODULE: Readonly<Record<string, readonly Permission[
     "gateway-driver-command",
     "gateway-edit",
     "gateway-enrollment-admin",
-    "gateway-tunnel-control",
     "gateway-view"
   ],
   "Fault Management": [
