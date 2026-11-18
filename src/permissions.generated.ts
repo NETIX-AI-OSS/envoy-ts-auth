@@ -168,6 +168,8 @@ export const PERMISSIONS = [
   "inventory-transaction-edit",
   "inventory-transaction-view",
   "inventory-view",
+  "iot-offline-manage",
+  "iot-offline-view",
   "item-category-write",
   "item-master-write",
   "license-admin",
@@ -472,6 +474,8 @@ export const PERMISSIONS_BY_MODULE: Readonly<Record<string, readonly Permission[
     "ecm-view",
     "fdd-rule-edit",
     "fdd-rule-view",
+    "iot-offline-manage",
+    "iot-offline-view",
     "metric-edit",
     "metric-view"
   ],
