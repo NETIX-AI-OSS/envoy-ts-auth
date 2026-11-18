@@ -6,7 +6,7 @@
 
 # Class: Auth
 
-Defined in: [src/index.ts:177](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L177)
+Defined in: src/index.ts:177
 
 Singleton class for authentication and authorization utilities, call [Auth.initialize](#initialize) once, then [Auth.getInstance](#getinstance) for all methods.
 
@@ -16,7 +16,7 @@ Singleton class for authentication and authorization utilities, call [Auth.initi
 
 > **allCookies**(): `Record`\<`string`, `string`\>
 
-Defined in: [src/index.ts:295](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L295)
+Defined in: src/index.ts:295
 
 Returns all cookies as an object. Not available on native platforms.
 
@@ -32,7 +32,7 @@ Object of cookie key-value pairs or message if unavailable.
 
 > **clearCookies**(): `Promise`\<`void`\>
 
-Defined in: [src/index.ts:372](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L372)
+Defined in: src/index.ts:372
 
 Clears authentication cookies or AsyncStorage tokens.
 
@@ -50,7 +50,7 @@ If the Auth config is unavailable.
 
 > **getGroups**(): `Promise`\<`string`[] \| `undefined`\>
 
-Defined in: [src/index.ts:548](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L548)
+Defined in: src/index.ts:548
 
 Gets the groups for the current user.
 
@@ -70,7 +70,7 @@ If the Auth config is unavailable.
 
 > **getKeyValue**(`key`): `Promise`\<`string` \| `null`\>
 
-Defined in: [src/index.ts:341](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L341)
+Defined in: src/index.ts:341
 
 Gets the value for a key from storage (cookie or AsyncStorage).
 
@@ -98,7 +98,7 @@ If the Auth config is unavailable.
 
 > **getPermissions**(): `Promise`\<`string`[] \| `undefined`\>
 
-Defined in: [src/index.ts:495](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L495)
+Defined in: src/index.ts:495
 
 Gets the permissions for the current user.
 
@@ -118,7 +118,7 @@ If the Auth config is unavailable.
 
 > **getToken**(): `Promise`\<`string` \| `null`\>
 
-Defined in: [src/index.ts:569](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L569)
+Defined in: src/index.ts:569
 
 Gets the current access token from storage or API.
 
@@ -138,7 +138,7 @@ If the Auth config is unavailable.
 
 > **getUser**(): `Promise`\<`any`\>
 
-Defined in: [src/index.ts:440](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L440)
+Defined in: src/index.ts:440
 
 Gets the current user from the API or cache; only a 401 triggers the login redirect, other failures (403/429/5xx) resolve to `null`.
 
@@ -158,7 +158,7 @@ If the Auth config is unavailable.
 
 > **hasAllPermissions**(`codenames`): `Promise`\<`boolean`\>
 
-Defined in: [src/index.ts:538](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L538)
+Defined in: src/index.ts:538
 
 Whether the current user holds ALL of the given permission codenames.
 
@@ -178,7 +178,7 @@ readonly `string`[]
 
 > **hasAnyPermission**(`codenames`): `Promise`\<`boolean`\>
 
-Defined in: [src/index.ts:530](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L530)
+Defined in: src/index.ts:530
 
 Whether the current user holds ANY of the given permission codenames.
 
@@ -198,7 +198,7 @@ readonly `string`[]
 
 > **hasPermission**(`codename`): `Promise`\<`boolean`\>
 
-Defined in: [src/index.ts:522](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L522)
+Defined in: src/index.ts:522
 
 Whether the current user holds the given permission codename.
 
@@ -220,7 +220,7 @@ Canonical bare permission codename (e.g. "gateway-config-apply").
 
 > **isKeyPresent**(`key`): `Promise`\<`boolean`\>
 
-Defined in: [src/index.ts:319](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L319)
+Defined in: src/index.ts:319
 
 Checks whether a given key is present in the storage (cookie or AsyncStorage).
 
@@ -248,7 +248,7 @@ If the Auth config is unavailable.
 
 > **isLoggedIn**(): `Promise`\<`boolean`\>
 
-Defined in: [src/index.ts:888](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L888)
+Defined in: src/index.ts:888
 
 Checks if logged in; on web, a valid token also triggers a redirect to `continue` or `LAUNCHPAD_PAGE_URL` (side-effect, for login/guard pages).
 
@@ -268,7 +268,7 @@ If unable to check login status.
 
 > **login**(`username`, `password`): `Promise`\<`boolean` \| `undefined`\>
 
-Defined in: [src/index.ts:825](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L825)
+Defined in: src/index.ts:825
 
 Logs in the user with username and password.
 
@@ -302,7 +302,7 @@ If the Auth config is unavailable.
 
 > **logout**(): `Promise`\<`void`\>
 
-Defined in: [src/index.ts:800](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L800)
+Defined in: src/index.ts:800
 
 Logs out the user: clears local storage, best-effort revokes the server session, then always redirects to login, even when an expiry redirect already fired.
 
@@ -320,7 +320,7 @@ If the Auth config is unavailable.
 
 > **redirectToLoginPage**(): `void`
 
-Defined in: [src/index.ts:387](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L387)
+Defined in: src/index.ts:387
 
 Redirects the user to the login page or calls ON_LOGOUT callback; a no-op once a redirect is under way, or when the login page is the page already showing.
 
@@ -338,7 +338,7 @@ If the Auth config is unavailable.
 
 > **redirectToSourcePage**(): `void`
 
-Defined in: [src/index.ts:420](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L420)
+Defined in: src/index.ts:420
 
 Redirects the user to the source page or calls ON_LOGIN callback.
 
@@ -356,7 +356,7 @@ If the Auth config is unavailable.
 
 > **reviveToken**(): `Promise`\<`any`\>
 
-Defined in: [src/index.ts:624](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L624)
+Defined in: src/index.ts:624
 
 Attempts to revive the access token using the refresh token; a missing or rejected refresh token ends the session and redirects, while a server or network failure keeps it for a later attempt.
 
@@ -376,7 +376,7 @@ If the Auth config is unavailable.
 
 > **setKeyValue**(`data`): `Promise`\<`void`\>
 
-Defined in: [src/index.ts:356](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L356)
+Defined in: src/index.ts:356
 
 Sets a key-value pair in storage (cookie or AsyncStorage).
 
@@ -402,7 +402,7 @@ If the Auth config is unavailable.
 
 > **verifyToken**(): `Promise`\<\{ `message`: `string`; `status`: `string`; \} \| \{ `message?`: `undefined`; `status`: `string`; \} \| \{ `message?`: `undefined`; `status`: `number`; \}\>
 
-Defined in: [src/index.ts:719](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L719)
+Defined in: src/index.ts:719
 
 Verifies the current access token, revives if needed; classifies failures exactly as [Auth.reviveToken](#revivetoken) does.
 
@@ -422,7 +422,7 @@ If the Auth config is unavailable.
 
 > `static` **getInstance**(): `Auth`
 
-Defined in: [src/index.ts:217](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L217)
+Defined in: src/index.ts:217
 
 Returns the singleton Auth instance.
 
@@ -442,7 +442,7 @@ If Auth is not initialized.
 
 > `static` **initialize**(`config`): `void`
 
-Defined in: [src/index.ts:198](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L198)
+Defined in: src/index.ts:198
 
 Initializes the Auth singleton with the given configuration; must be called before any other Auth method.
 
@@ -468,7 +468,7 @@ If already initialized or config is invalid.
 
 > `static` **reset**(): `void`
 
-Defined in: [src/index.ts:225](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/index.ts#L225)
+Defined in: src/index.ts:225
 
 Resets the Auth singleton so it can be re-initialized (for tests/reconfiguration).
 

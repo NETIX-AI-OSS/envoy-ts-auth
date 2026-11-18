@@ -6,7 +6,7 @@
 
 # Interface: LocaleStorage
 
-Defined in: [src/locale.ts:38](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L38)
+Defined in: src/locale.ts:38
 
 Minimal asynchronous storage contract shared by browsers and React Native.
 
@@ -16,7 +16,7 @@ Minimal asynchronous storage contract shared by browsers and React Native.
 
 > **getItem**(`key`): `Promise`\<`string` \| `null`\>
 
-Defined in: [src/locale.ts:39](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L39)
+Defined in: src/locale.ts:39
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [src/locale.ts:39](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blo
 
 > **removeItem**(`key`): `Promise`\<`void`\>
 
-Defined in: [src/locale.ts:41](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L41)
+Defined in: src/locale.ts:41
 
 #### Parameters
 
@@ -52,7 +52,7 @@ Defined in: [src/locale.ts:41](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blo
 
 > **setItem**(`key`, `value`): `Promise`\<`void`\>
 
-Defined in: [src/locale.ts:40](https://github.com/NETIX-AI-OSS/envoy-ts-auth/blob/2888867dc4e0d2c82b4e2fd9aace10fe39ffd776/src/locale.ts#L40)
+Defined in: src/locale.ts:40
 
 #### Parameters
 

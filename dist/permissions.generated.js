@@ -143,7 +143,6 @@ exports.PERMISSIONS = [
     "gateway-driver-command",
     "gateway-edit",
     "gateway-enrollment-admin",
-    "gateway-tunnel-control",
     "gateway-view",
     "goods-received-note-delete",
     "goods-received-note-edit",
@@ -487,7 +486,6 @@ exports.PERMISSIONS_BY_MODULE = {
         "gateway-driver-command",
         "gateway-edit",
         "gateway-enrollment-admin",
-        "gateway-tunnel-control",
         "gateway-view"
     ],
     "Fault Management": [
