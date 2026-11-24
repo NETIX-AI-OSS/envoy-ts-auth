@@ -284,7 +284,14 @@ class Auth {
                 throw AuthConfigUnavailableError();
             this.clearSessionCache();
             if (this.authConfig.NATIVE_PLATFORM) {
-                yield async_storage_1.default.multiRemove(["token", "refresh"]);
+                const nativeStorage = async_storage_1.default;
+                const keys = ["token", "refresh"];
+                if (nativeStorage.removeMany) {
+                    yield nativeStorage.removeMany(keys);
+                }
+                else {
+                    yield nativeStorage.multiRemove(keys);
+                }
             }
             else {
                 Cookies.remove("token", cookieAttributes(this.authConfig));
