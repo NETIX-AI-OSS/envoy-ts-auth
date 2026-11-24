@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   Auth,
@@ -83,6 +84,29 @@ describe('Auth', () => {
     // Swap real setTimeout-based retry sleep for an instant spy in tests.
     retrySleep = vi.fn(async () => {})
     __setDefaultRetrySleepForTests(retrySleep)
+  })
+
+  it('clears both native credentials using the legacy bulk storage API', async () => {
+    Auth.initialize({ ...baseConfig, NATIVE_PLATFORM: true })
+
+    await Auth.getInstance().clearCookies()
+
+    expect(AsyncStorage.multiRemove).toHaveBeenCalledWith(['token', 'refresh'])
+  })
+
+  it('supports native AsyncStorage v3 when an expired session is cleared', async () => {
+    const removeMany = vi.fn(async () => {})
+    Object.assign(AsyncStorage, { removeMany })
+    const onLogout = vi.fn()
+    Auth.initialize({ ...baseConfig, NATIVE_PLATFORM: true, ON_LOGOUT: onLogout })
+    try {
+      await expect(Auth.getInstance().getToken()).resolves.toBeNull()
+      expect(removeMany).toHaveBeenCalledWith(['token', 'refresh'])
+      expect(AsyncStorage.multiRemove).not.toHaveBeenCalled()
+      expect(onLogout).toHaveBeenCalled()
+    } finally {
+      Reflect.deleteProperty(AsyncStorage, 'removeMany')
+    }
   })
 
   // ── Initialization ────────────────────────────────────────────────────────

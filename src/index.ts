@@ -373,7 +373,15 @@ class Auth {
     if (!this.authConfig) throw AuthConfigUnavailableError();
     this.clearSessionCache();
     if (this.authConfig.NATIVE_PLATFORM) {
-      await AsyncStorage.multiRemove(["token", "refresh"]);
+      const nativeStorage = AsyncStorage as typeof AsyncStorage & {
+        removeMany?: (keys: string[]) => Promise<void>;
+      };
+      const keys = ["token", "refresh"];
+      if (nativeStorage.removeMany) {
+        await nativeStorage.removeMany(keys);
+      } else {
+        await nativeStorage.multiRemove(keys);
+      }
     } else {
       Cookies.remove("token", cookieAttributes(this.authConfig));
       Cookies.remove("refresh", cookieAttributes(this.authConfig));
