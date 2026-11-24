@@ -181,7 +181,7 @@ export class LocaleRuntime {
         "envoy-ts-auth locale: maxCacheEntries must be a positive integer.",
       );
     }
-    const runtimeFetch = config.fetch ?? globalThis.fetch;
+    const runtimeFetch = config.fetch ?? globalThis.fetch?.bind(globalThis);
     if (!runtimeFetch) {
       throw new Error("envoy-ts-auth locale: fetch is unavailable.");
     }

@@ -41,7 +41,7 @@ const MAX_WARNED_LANGUAGES = 32;
  */
 class LocaleRuntime {
     constructor(config) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o;
         /** Distinct unparseable language codes already reported; capped by MAX_WARNED_LANGUAGES. */
         this.warnedInvalidLanguages = new Set();
         this.inFlight = new Map();
@@ -56,7 +56,7 @@ class LocaleRuntime {
             ((_b = config.maxCacheEntries) !== null && _b !== void 0 ? _b : 8) < 1) {
             throw new Error("envoy-ts-auth locale: maxCacheEntries must be a positive integer.");
         }
-        const runtimeFetch = (_c = config.fetch) !== null && _c !== void 0 ? _c : globalThis.fetch;
+        const runtimeFetch = (_c = config.fetch) !== null && _c !== void 0 ? _c : (_d = globalThis.fetch) === null || _d === void 0 ? void 0 : _d.bind(globalThis);
         if (!runtimeFetch) {
             throw new Error("envoy-ts-auth locale: fetch is unavailable.");
         }
@@ -66,19 +66,19 @@ class LocaleRuntime {
             storage: config.storage,
             getAccessToken: config.getAccessToken,
             fetch: runtimeFetch,
-            healthEndpoint: (_d = config.healthEndpoint) !== null && _d !== void 0 ? _d : "healthz/",
-            effectiveEndpoint: (_e = config.effectiveEndpoint) !== null && _e !== void 0 ? _e : "api/organization-locale/effective/",
-            preferenceEndpoint: (_f = config.preferenceEndpoint) !== null && _f !== void 0 ? _f : "auth/me/language/",
-            anonymousEffectiveEndpoint: (_g = config.anonymousEffectiveEndpoint) !== null && _g !== void 0 ? _g : "auth/organization-locale/effective/",
-            maxCacheEntries: (_h = config.maxCacheEntries) !== null && _h !== void 0 ? _h : 8,
-            storageNamespace: (_j = config.storageNamespace) !== null && _j !== void 0 ? _j : DEFAULT_NAMESPACE,
+            healthEndpoint: (_e = config.healthEndpoint) !== null && _e !== void 0 ? _e : "healthz/",
+            effectiveEndpoint: (_f = config.effectiveEndpoint) !== null && _f !== void 0 ? _f : "api/organization-locale/effective/",
+            preferenceEndpoint: (_g = config.preferenceEndpoint) !== null && _g !== void 0 ? _g : "auth/me/language/",
+            anonymousEffectiveEndpoint: (_h = config.anonymousEffectiveEndpoint) !== null && _h !== void 0 ? _h : "auth/organization-locale/effective/",
+            maxCacheEntries: (_j = config.maxCacheEntries) !== null && _j !== void 0 ? _j : 8,
+            storageNamespace: (_k = config.storageNamespace) !== null && _k !== void 0 ? _k : DEFAULT_NAMESPACE,
             // Strict on purpose: a misconfigured fallback must fail at construction, not silently
             // on the first bad read.
-            fallbackLanguage: normalizeLanguage((_k = config.fallbackLanguage) !== null && _k !== void 0 ? _k : FALLBACK_LANGUAGE),
-            onInvalidLanguage: (_l = config.onInvalidLanguage) !== null && _l !== void 0 ? _l : ((language, fallback) => {
+            fallbackLanguage: normalizeLanguage((_l = config.fallbackLanguage) !== null && _l !== void 0 ? _l : FALLBACK_LANGUAGE),
+            onInvalidLanguage: (_m = config.onInvalidLanguage) !== null && _m !== void 0 ? _m : ((language, fallback) => {
                 console.warn(`envoy-ts-auth locale: invalid language code ${JSON.stringify(language)}; falling back to "${fallback}".`);
             }),
-            now: (_m = config.now) !== null && _m !== void 0 ? _m : Date.now,
+            now: (_o = config.now) !== null && _o !== void 0 ? _o : Date.now,
         };
     }
     /** Returns true only when user-management answers its health endpoint successfully. */

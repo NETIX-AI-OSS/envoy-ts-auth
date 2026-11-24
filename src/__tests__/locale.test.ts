@@ -92,6 +92,32 @@ describe("locale storage adapters", () => {
 });
 
 describe("LocaleRuntime", () => {
+  it("keeps the browser fetch receiver for locale requests made without a custom fetch", async () => {
+    const fetchOnWindow = vi.fn(function (this: unknown, input: RequestInfo | URL) {
+      if (this !== globalThis) throw new TypeError("Illegal invocation");
+      const path = new URL(String(input)).pathname;
+      return Promise.resolve(response(200, path.endsWith("/effective/") ? locale : undefined));
+    });
+    vi.stubGlobal("fetch", fetchOnWindow);
+    try {
+      const runtime = new LocaleRuntime({
+        apiBaseUrl: "https://users.example.com",
+        application: "cafm-v2-ui",
+        storage: new MemoryStorage(),
+        getAccessToken: async () => "access-token",
+      });
+      await expect(runtime.checkHealth()).resolves.toBe(true);
+      await expect(runtime.refreshEffective(identity, "en")).resolves.toMatchObject({ locale });
+      await expect(runtime.setPreferredLanguage(identity, "ru")).resolves.toBe(true);
+      expect(fetchOnWindow).toHaveBeenCalledWith(
+        "https://users.example.com/auth/me/language/",
+        expect.objectContaining({ method: "PATCH", body: '{"preferred_language":"ru"}' }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("rejects incomplete configuration and invalid languages", async () => {
     const storage = new MemoryStorage();
     expect(
