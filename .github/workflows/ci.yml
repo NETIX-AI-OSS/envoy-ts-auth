@@ -30,5 +30,10 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Verify checked-in distribution
+        run: |
+          git diff --exit-code -- dist/
+          test -z "$(git ls-files --others --exclude-standard -- dist/)"
+
       - name: Test
         run: pnpm test

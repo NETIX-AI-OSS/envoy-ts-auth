@@ -14,7 +14,7 @@ It is maintained in the open by NETIX.AI OSS and designed for teams that need a 
 ## Install
 
 ```bash
-yarn add github:NETIX-AI-OSS/envoy-ts-auth
+pnpm add github:NETIX-AI-OSS/envoy-ts-auth
 # or
 npm i github:NETIX-AI-OSS/envoy-ts-auth
 ```
@@ -133,15 +133,17 @@ flowchart TD
 - Architecture notes: [`docs/architecture.md`](docs/architecture.md)
 - Troubleshooting: [`docs/troubleshooting.md`](docs/troubleshooting.md)
 - API reference (compact): [`docs/api/README.md`](docs/api/README.md)
-- OSS release checklist: [`docs/release-checklist.md`](docs/release-checklist.md)
-
 ## Development
 
 ```bash
-yarn install
-yarn build
-yarn docs
+pnpm install --frozen-lockfile
+pnpm build
+pnpm test
+pnpm run docs
 ```
+
+Git installs load the committed `dist/` files. CI checks that they match the build.
+Run `pnpm pack` to inspect the local package contents.
 
 ## Governance
 

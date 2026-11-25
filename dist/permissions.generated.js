@@ -169,6 +169,8 @@ exports.PERMISSIONS = [
     "inventory-transaction-edit",
     "inventory-transaction-view",
     "inventory-view",
+    "iot-offline-manage",
+    "iot-offline-view",
     "item-category-write",
     "item-master-write",
     "license-admin",
@@ -469,6 +471,8 @@ exports.PERMISSIONS_BY_MODULE = {
         "ecm-view",
         "fdd-rule-edit",
         "fdd-rule-view",
+        "iot-offline-manage",
+        "iot-offline-view",
         "metric-edit",
         "metric-view"
     ],
