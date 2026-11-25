@@ -8,4 +8,4 @@
 
 > `const` **PERMISSION\_SET**: `ReadonlySet`\<[`Permission`](../type-aliases/Permission.md)\>
 
-Defined in: src/permissions.generated.ts:333
+Defined in: src/permissions.generated.ts:338

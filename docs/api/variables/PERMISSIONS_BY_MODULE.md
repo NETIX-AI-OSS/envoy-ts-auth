@@ -8,4 +8,4 @@
 
 > `const` **PERMISSIONS\_BY\_MODULE**: `Readonly`\<`Record`\<`string`, readonly [`Permission`](../type-aliases/Permission.md)[]\>\>
 
-Defined in: src/permissions.generated.ts:335
+Defined in: src/permissions.generated.ts:340
