@@ -76,9 +76,9 @@ declare class Auth {
     private static initialized;
     private config;
     private cachedToken;
-    private cachedUser;
     private tokenTimestamp;
-    private userTimestamp;
+    private sessionGeneration;
+    private userSession;
     private redirectInProgress;
     private static readonly CACHE_DURATION;
     private constructor();
