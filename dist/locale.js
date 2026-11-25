@@ -145,8 +145,11 @@ class LocaleRuntime {
     setPreferredLanguage(identity, language) {
         return __awaiter(this, void 0, void 0, function* () {
             const normalized = normalizeIdentity(identity);
+            const generation = this.sessionGeneration;
             const pending = Object.assign(Object.assign({ schemaVersion: 1 }, normalized), { language: normalizeLanguage(language), updatedAt: this.config.now() });
             yield this.config.storage.setItem(this.pendingKey(normalized), JSON.stringify(pending));
+            if (!this.canReconcilePreference(normalized, generation))
+                return false;
             return this.reconcilePendingLanguage(normalized);
         });
     }
@@ -154,12 +157,15 @@ class LocaleRuntime {
     reconcilePendingLanguage(identity) {
         return __awaiter(this, void 0, void 0, function* () {
             const normalized = normalizeIdentity(identity);
+            const generation = this.sessionGeneration;
+            if (!this.canReconcilePreference(normalized, generation))
+                return false;
             const key = this.pendingKey(normalized);
             const existing = this.preferenceInFlight.get(key);
             if (existing)
                 return existing;
             let request;
-            request = this.performPendingLanguageReconciliation(normalized, key).finally(() => {
+            request = this.performPendingLanguageReconciliation(normalized, key, generation).finally(() => {
                 if (this.preferenceInFlight.get(key) === request) {
                     this.preferenceInFlight.delete(key);
                 }
@@ -168,11 +174,14 @@ class LocaleRuntime {
             return request;
         });
     }
-    performPendingLanguageReconciliation(normalized, key) {
+    performPendingLanguageReconciliation(normalized, key, generation) {
         return __awaiter(this, void 0, void 0, function* () {
+            const isCurrent = () => this.canReconcilePreference(normalized, generation);
             // Loop because a newer offline choice may be written while PATCH is in flight.
             for (;;) {
                 const raw = yield this.safeGet(key);
+                if (!isCurrent())
+                    return false;
                 if (!raw)
                     return true;
                 let pending;
@@ -190,10 +199,10 @@ class LocaleRuntime {
                     yield this.config.storage.removeItem(key);
                     return true;
                 }
-                if (!(yield this.checkHealth()))
+                if (!(yield this.checkHealth()) || !isCurrent())
                     return false;
                 const token = yield this.config.getAccessToken();
-                if (!token)
+                if (!token || !isCurrent())
                     return false;
                 try {
                     const response = yield this.config.fetch(this.url(this.config.preferenceEndpoint), {
@@ -205,10 +214,12 @@ class LocaleRuntime {
                         },
                         body: JSON.stringify({ preferred_language: pending.language }),
                     });
-                    if (!response.ok)
+                    if (!response.ok || !isCurrent())
                         return false;
                     // Do not erase a newer choice that arrived while this request was running.
                     const latest = yield this.safeGet(key);
+                    if (!isCurrent())
+                        return false;
                     if (latest === raw) {
                         yield this.config.storage.removeItem(key);
                         return true;
@@ -219,6 +230,11 @@ class LocaleRuntime {
                 }
             }
         });
+    }
+    canReconcilePreference(identity, generation) {
+        // A standalone preference caller may not have selected an active catalog.
+        return (generation === this.sessionGeneration &&
+            (this.activeIdentity === null || sameIdentity(this.activeIdentity, identity)));
     }
     /**
      * Fetches universal-login copy before authentication. The context token is
@@ -262,60 +278,65 @@ class LocaleRuntime {
     setActiveIdentity(identity) {
         const normalized = identity ? normalizeIdentity(identity) : null;
         if (!sameIdentity(this.activeIdentity, normalized)) {
-            this.sessionGeneration += 1;
-            this.inFlight.clear();
-            this.preferenceInFlight.clear();
+            this.invalidateAuthenticatedRequests();
         }
         this.activeIdentity = normalized;
     }
     /** Call after access-token replacement so no in-flight response crosses sessions. */
     notifyTokenChanged() {
+        this.activeIdentity = null;
+        this.invalidateAuthenticatedRequests();
+    }
+    invalidateAuthenticatedRequests() {
         this.sessionGeneration += 1;
         this.inFlight.clear();
         this.preferenceInFlight.clear();
-        this.activeIdentity = null;
     }
     /** Removes all persisted locale and pending-preference state for one identity. */
     clearIdentity(identity) {
         return __awaiter(this, void 0, void 0, function* () {
             const normalized = normalizeIdentity(identity);
+            if (sameIdentity(this.activeIdentity, normalized))
+                this.activeIdentity = null;
+            this.invalidateAuthenticatedRequests();
+            yield this.removeIdentityStorage(normalized);
+        });
+    }
+    removeIdentityStorage(normalized) {
+        return __awaiter(this, void 0, void 0, function* () {
             const index = yield this.readIndex();
             const prefix = `${this.config.storageNamespace}:cache:${encode(normalized.userId)}:${encode(normalized.organizationId)}:`;
             const owned = index.filter((entry) => entry.key.startsWith(prefix));
             yield Promise.all(owned.map((entry) => this.config.storage.removeItem(entry.key)));
             yield this.config.storage.removeItem(this.pendingKey(normalized));
             yield this.writeIndex(index.filter((entry) => !entry.key.startsWith(prefix)));
-            if (sameIdentity(this.activeIdentity, normalized))
-                this.activeIdentity = null;
-            this.sessionGeneration += 1;
-            this.inFlight.clear();
-            this.preferenceInFlight.clear();
         });
     }
     /** Logout hook: clears the supplied (or active) identity without affecting other users. */
     handleLogout(identity) {
         return __awaiter(this, void 0, void 0, function* () {
             const target = identity ? normalizeIdentity(identity) : this.activeIdentity;
+            this.notifyTokenChanged();
             if (target)
-                yield this.clearIdentity(target);
-            this.activeIdentity = null;
-            this.sessionGeneration += 1;
-            this.inFlight.clear();
-            this.preferenceInFlight.clear();
+                yield this.removeIdentityStorage(target);
         });
     }
     performEffectiveRefresh(identity, language, generation) {
         return __awaiter(this, void 0, void 0, function* () {
             const cached = yield this.hydrate(identity, language);
-            if (!(yield this.checkHealth())) {
+            this.assertCurrentSession(identity, generation);
+            const healthy = yield this.checkHealth();
+            this.assertCurrentSession(identity, generation);
+            if (!healthy) {
                 if (cached) {
-                    this.assertCurrentSession(identity, generation);
                     return { locale: cached.locale, source: "cache", notModified: false };
                 }
                 throw new Error("envoy-ts-auth locale: user-management is unavailable.");
             }
             yield this.reconcilePendingLanguage(identity);
+            this.assertCurrentSession(identity, generation);
             const token = yield this.config.getAccessToken();
+            this.assertCurrentSession(identity, generation);
             if (!token)
                 throw new Error("envoy-ts-auth locale: authentication is required.");
             const url = new URL(this.url(this.config.effectiveEndpoint));
@@ -343,6 +364,7 @@ class LocaleRuntime {
                 const envelope = Object.assign(Object.assign({ schemaVersion: 1, apiOrigin: this.apiOrigin(), application: this.config.application }, identity), { language, etag: response.headers.get("ETag"), fetchedAt: this.config.now(), locale });
                 this.assertCurrentSession(identity, generation);
                 yield this.persistEnvelope(envelope);
+                this.assertCurrentSession(identity, generation);
                 return { locale, source: "network", notModified: false };
             }
             catch (error) {

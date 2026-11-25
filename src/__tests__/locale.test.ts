@@ -24,6 +24,7 @@ class MemoryStorage implements LocaleStorage {
 }
 
 const identity = { userId: 7, organizationId: 42 };
+const otherOrganization = { userId: 7, organizationId: 43 };
 const locale: EffectiveLocale = {
   application: "cafm-v2-ui",
   requested_language: "en",
@@ -44,6 +45,14 @@ function response(
     headers: new Headers(headers),
     json: vi.fn(async () => body),
   } as unknown as Response;
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
 }
 
 function createRuntime(
@@ -280,12 +289,13 @@ describe("LocaleRuntime", () => {
     });
   });
 
-  it("uses an exact cache during health or effective-fetch outages", async () => {
+  it.each(["health", "effective"] as const)("uses an exact cache during a %s outage", async (stage) => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(response(200))
-      .mockResolvedValueOnce(response(200, locale))
-      .mockResolvedValueOnce(response(503));
+      .mockResolvedValueOnce(response(200, locale));
+    if (stage === "effective") fetchMock.mockResolvedValueOnce(response(200));
+    fetchMock.mockResolvedValueOnce(response(503));
     const { runtime } = createRuntime(new MemoryStorage(), fetchMock);
     await runtime.refreshEffective(identity, "en");
     await expect(runtime.refreshEffective(identity, "en")).resolves.toMatchObject({
@@ -393,6 +403,140 @@ describe("LocaleRuntime", () => {
     releaseLocale?.(response(200, locale));
     await expect(refresh).rejects.toThrow("session changed");
     await expect(runtime.hydrate(identity, "en")).resolves.toBeNull();
+  });
+
+  it.each(["health", "token"] as const)(
+    "does not send an earlier organization's ETag with a new token after waiting for %s",
+    async (stage) => {
+      let bearer = "alpha-token";
+      const alphaEtag = '"alpha-v1"';
+      const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) =>
+        String(input).endsWith("/healthz/")
+          ? response(200)
+          : response(200, locale, { ETag: alphaEtag }),
+      );
+      const getAccessToken = vi.fn(async () => bearer);
+      const { runtime } = createRuntime(new MemoryStorage(), fetchMock, { getAccessToken });
+      await runtime.refreshEffective(identity, "en");
+      fetchMock.mockClear();
+      getAccessToken.mockClear();
+
+      const health = deferred<Response>();
+      const token = deferred<string>();
+      if (stage === "health") fetchMock.mockReturnValueOnce(health.promise);
+      else getAccessToken.mockReturnValueOnce(token.promise);
+      const oldRequest = runtime.refreshEffective(identity, "en");
+      await vi.waitFor(() =>
+        expect(stage === "health" ? fetchMock : getAccessToken).toHaveBeenCalledOnce(),
+      );
+
+      runtime.setActiveIdentity(otherOrganization);
+      bearer = "beta-token";
+      if (stage === "health") health.resolve(response(200));
+      else token.resolve(bearer);
+      await expect(oldRequest).rejects.toThrow("session changed");
+
+      expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/effective/"))).toEqual([]);
+      if (stage === "health") expect(getAccessToken).not.toHaveBeenCalled();
+      await expect(runtime.hydrate(identity, "en")).resolves.toMatchObject({ etag: alphaEtag });
+    },
+  );
+
+  it("keeps a standalone preference written as the token changes for later reconciliation", async () => {
+    const { runtime, storage, fetchMock } = createRuntime();
+    const diskWrite = deferred<void>();
+    const write = vi.spyOn(storage, "setItem").mockImplementationOnce(async (key, value) => {
+      await diskWrite.promise;
+      storage.values.set(key, value);
+    });
+    const pending = runtime.setPreferredLanguage(identity, "ar");
+    await vi.waitFor(() => expect(write).toHaveBeenCalledOnce());
+
+    runtime.notifyTokenChanged();
+    diskWrite.resolve(undefined);
+    await expect(pending).resolves.toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(storage.values.get("envoy-ts-auth:locale:v1:pending:7:42")).toContain('"language":"ar"');
+  });
+
+  it.each(["health", "token"] as const)(
+    "keeps the earlier organization's pending choice when its replay waits for %s",
+    async (stage) => {
+      let bearer = "alpha-token";
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response(200));
+      const getAccessToken = vi.fn(async () => bearer);
+      const { runtime, storage } = createRuntime(new MemoryStorage(), fetchMock, { getAccessToken });
+      runtime.setActiveIdentity(identity);
+      fetchMock.mockResolvedValueOnce(response(503));
+      await expect(runtime.setPreferredLanguage(identity, "ar")).resolves.toBe(false);
+      fetchMock.mockClear();
+
+      const health = deferred<Response>();
+      const token = deferred<string>();
+      if (stage === "health") fetchMock.mockReturnValueOnce(health.promise);
+      else getAccessToken.mockReturnValueOnce(token.promise);
+      const oldRequest = runtime.reconcilePendingLanguage(identity);
+      await vi.waitFor(() =>
+        expect(stage === "health" ? fetchMock : getAccessToken).toHaveBeenCalledOnce(),
+      );
+
+      runtime.setActiveIdentity(otherOrganization);
+      bearer = "beta-token";
+      if (stage === "health") health.resolve(response(200));
+      else token.resolve(bearer);
+      const synchronized = await oldRequest;
+      expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH")).toEqual([]);
+      expect(synchronized).toBe(false);
+      expect(storage.values.get("envoy-ts-auth:locale:v1:pending:7:42")).toContain('"language":"ar"');
+
+      await expect(runtime.reconcilePendingLanguage(identity)).resolves.toBe(false);
+      runtime.setActiveIdentity(identity);
+      bearer = "alpha-token";
+      await expect(runtime.reconcilePendingLanguage(identity)).resolves.toBe(true);
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        "https://users.example.com/auth/me/language/",
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: "Bearer alpha-token" }),
+          body: '{"preferred_language":"ar"}',
+        }),
+      );
+    },
+  );
+
+  it("invalidates old requests immediately during logout and keeps a newly active identity", async () => {
+    const { runtime, storage, fetchMock } = createRuntime();
+    fetchMock
+      .mockResolvedValueOnce(response(200))
+      .mockResolvedValueOnce(response(200, locale, { ETag: '"alpha-v1"' }));
+    await runtime.refreshEffective(identity, "en");
+    fetchMock.mockClear();
+
+    const health = deferred<Response>();
+    fetchMock.mockReturnValueOnce(health.promise).mockResolvedValue(response(200, locale));
+    const previousRequest = runtime.refreshEffective(identity, "en");
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    const indexRead = deferred<string | null>();
+    const readIndex = vi.spyOn(storage, "getItem").mockReturnValueOnce(indexRead.promise);
+    const eviction = runtime.handleLogout();
+    await vi.waitFor(() => expect(readIndex).toHaveBeenCalledWith("envoy-ts-auth:locale:v1:index"));
+    health.resolve(response(200));
+    const previous = await previousRequest.catch((error: unknown) => error);
+
+    const betaResponse = deferred<Response>();
+    fetchMock.mockResolvedValueOnce(response(200)).mockReturnValueOnce(betaResponse.promise);
+    const resumed = runtime.refreshEffective(otherOrganization, "en");
+    await vi.waitFor(() =>
+      expect(fetchMock.mock.calls.at(-1)?.[0].toString()).toContain("/effective/"),
+    );
+    indexRead.resolve(storage.values.get("envoy-ts-auth:locale:v1:index") ?? null);
+    await eviction;
+    betaResponse.resolve(response(200, locale, { ETag: '"beta-v1"' }));
+    const current = await resumed.catch((error: unknown) => error);
+
+    expect(previous).toEqual(expect.objectContaining({ message: expect.stringContaining("session changed") }));
+    expect(current).toEqual({ locale, source: "network", notModified: false });
+    await expect(runtime.hydrate(identity, "en")).resolves.toBeNull();
+    await expect(runtime.hydrate(otherOrganization, "en")).resolves.toMatchObject({ etag: '"beta-v1"' });
   });
 
   it("stores an offline language choice and reconciles only the latest choice", async () => {

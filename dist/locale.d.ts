@@ -118,6 +118,7 @@ export declare class LocaleRuntime {
     /** Replays the latest offline language choice. Returns false while still pending. */
     reconcilePendingLanguage(identity: LocaleIdentity): Promise<boolean>;
     private performPendingLanguageReconciliation;
+    private canReconcilePreference;
     /**
      * Fetches universal-login copy before authentication. The context token is
      * carried only in X-Locale-Context and is never persisted by this runtime.
@@ -128,8 +129,10 @@ export declare class LocaleRuntime {
     setActiveIdentity(identity: LocaleIdentity | null): void;
     /** Call after access-token replacement so no in-flight response crosses sessions. */
     notifyTokenChanged(): void;
+    private invalidateAuthenticatedRequests;
     /** Removes all persisted locale and pending-preference state for one identity. */
     clearIdentity(identity: LocaleIdentity): Promise<void>;
+    private removeIdentityStorage;
     /** Logout hook: clears the supplied (or active) identity without affecting other users. */
     handleLogout(identity?: LocaleIdentity): Promise<void>;
     private performEffectiveRefresh;

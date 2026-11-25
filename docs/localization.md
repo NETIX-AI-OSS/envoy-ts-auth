@@ -65,7 +65,9 @@ connectivity recovery flow. The runtime does not subscribe to platform events.
 `setPreferredLanguage(identity, language)` persists the latest choice before
 attempting `PATCH /auth/me/language/`. It returns `false` while the choice is
 pending. Call `reconcilePendingLanguage(identity)` after connectivity returns;
-only the latest pending value is sent.
+only the latest pending value is sent. If the runtime has an active catalog
+for another identity, it keeps the offline choice pending for the original
+identity. Both preference methods can be used without selecting a catalog.
 
 ## Session isolation
 
@@ -75,10 +77,12 @@ use. Invalid or corrupt records are deleted.
 
 - Call `setActiveIdentity(identity)` after `/auth/me/` resolves or the active
   organization changes.
-- Call `notifyTokenChanged()` after token replacement to discard in-flight
-  request state.
-- Call `handleLogout(identity)` during logout to remove that identity's locale
-  and pending preference without deleting another user's cache.
+- Call `notifyTokenChanged()` when replacing the access token, before the
+  token provider returns the new credential to this runtime. This discards the
+  previous identity's in-flight request state.
+- Call `handleLogout(identity)` during logout. It invalidates authenticated
+  requests immediately, then removes that identity's locale and pending
+  preference from storage.
 
 The cache keeps eight entries by default. Set `maxCacheEntries` to another
 positive integer where device constraints require a smaller bound.
