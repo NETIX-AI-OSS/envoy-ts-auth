@@ -357,7 +357,9 @@ export class LocaleRuntime {
 
       if (!(await this.checkHealth()) || !isCurrent()) return false;
       const token = await this.config.getAccessToken();
-      if (!token || !isCurrent()) return false;
+      if (!token || !isCurrent() || !tokenMatchesLocaleIdentity(token, normalized)) {
+        return false;
+      }
       try {
         const response = await this.config.fetch(
           this.url(this.config.preferenceEndpoint),
@@ -505,6 +507,9 @@ export class LocaleRuntime {
     const token = await this.config.getAccessToken();
     this.assertCurrentSession(identity, generation);
     if (!token) throw new Error("envoy-ts-auth locale: authentication is required.");
+    if (!tokenMatchesLocaleIdentity(token, identity)) {
+      throw new LocaleSessionChangedError();
+    }
 
     const url = new URL(this.url(this.config.effectiveEndpoint));
     url.searchParams.set("application", this.config.application);
@@ -781,6 +786,72 @@ function sameIdentity(
         left.organizationId === right.organizationId,
     )
   );
+}
+
+function isPlatformIdClaim(claim: unknown): claim is string | number {
+  return typeof claim === "number"
+    ? Number.isSafeInteger(claim) && claim >= 0
+    : typeof claim === "string" && /^[0-9]+$/.test(claim);
+}
+
+function tokenMatchesLocaleIdentity(
+  token: string,
+  identity: NormalizedLocaleIdentity,
+): boolean {
+  const claims = readPlatformAccessClaims(token);
+  // The backend still authenticates every token. This can only reject a scope mismatch.
+  return claims === null || sameIdentity(claims, identity);
+}
+
+function readPlatformAccessClaims(token: string): NormalizedLocaleIdentity | null {
+  const parts = token.split(".");
+  const payload = parts[1];
+  if (
+    parts.length !== 3 ||
+    !parts[0] ||
+    !payload ||
+    !parts[2] ||
+    payload.length % 4 === 1
+  ) {
+    return null;
+  }
+
+  // Decode the JWT's UTF-8 payload without requiring browser globals in React Native.
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  let encoded = "";
+  let value = 0;
+  let bits = 0;
+  for (const character of payload) {
+    const digit = alphabet.indexOf(character);
+    if (digit === -1) return null;
+    value = (value << 6) | digit;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      const byte = value >>> bits;
+      encoded += `%${byte.toString(16).padStart(2, "0")}`;
+      value &= (1 << bits) - 1;
+    }
+  }
+  try {
+    const claims: unknown = JSON.parse(decodeURIComponent(encoded));
+    if (!claims || typeof claims !== "object") return null;
+    const { token_type, auth_version, user_id, organization_id } =
+      claims as Record<string, unknown>;
+    if (
+      token_type !== "access" ||
+      typeof auth_version !== "number" ||
+      !Number.isSafeInteger(auth_version) ||
+      auth_version < 0 ||
+      !isPlatformIdClaim(user_id) ||
+      !isPlatformIdClaim(organization_id)
+    ) {
+      return null;
+    }
+    return normalizeIdentity({ userId: user_id, organizationId: organization_id });
+  } catch {
+    return null;
+  }
 }
 
 class LocaleHttpError extends Error {

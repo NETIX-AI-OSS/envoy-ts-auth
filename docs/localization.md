@@ -84,6 +84,13 @@ use. Invalid or corrupt records are deleted.
   requests immediately, then removes that identity's locale and pending
   preference from storage.
 
+If a NETIX access token has the platform's `token_type`, `auth_version`,
+`user_id`, and `organization_id` claims, the runtime checks that its user and
+organization match the request before sending an authenticated GET or PATCH.
+The check only rejects mismatches. The backend authenticates the bearer.
+Opaque tokens and tokens with incomplete or unrecognized claims use the
+session notifications above for scope changes.
+
 The cache keeps eight entries by default. Set `maxCacheEntries` to another
 positive integer where device constraints require a smaller bound.
 
