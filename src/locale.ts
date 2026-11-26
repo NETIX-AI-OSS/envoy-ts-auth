@@ -181,7 +181,7 @@ export class LocaleRuntime {
         "envoy-ts-auth locale: maxCacheEntries must be a positive integer.",
       );
     }
-    const runtimeFetch = config.fetch ?? globalThis.fetch;
+    const runtimeFetch = config.fetch ?? globalThis.fetch?.bind(globalThis);
     if (!runtimeFetch) {
       throw new Error("envoy-ts-auth locale: fetch is unavailable.");
     }
@@ -289,6 +289,7 @@ export class LocaleRuntime {
     language: string,
   ): Promise<boolean> {
     const normalized = normalizeIdentity(identity);
+    const generation = this.sessionGeneration;
     const pending: PendingLanguage = {
       schemaVersion: 1,
       ...normalized,
@@ -299,23 +300,28 @@ export class LocaleRuntime {
       this.pendingKey(normalized),
       JSON.stringify(pending),
     );
+    if (!this.canReconcilePreference(normalized, generation)) return false;
     return this.reconcilePendingLanguage(normalized);
   }
 
   /** Replays the latest offline language choice. Returns false while still pending. */
   async reconcilePendingLanguage(identity: LocaleIdentity): Promise<boolean> {
     const normalized = normalizeIdentity(identity);
+    const generation = this.sessionGeneration;
+    if (!this.canReconcilePreference(normalized, generation)) return false;
     const key = this.pendingKey(normalized);
     const existing = this.preferenceInFlight.get(key);
     if (existing) return existing;
     let request: Promise<boolean>;
-    request = this.performPendingLanguageReconciliation(normalized, key).finally(
-      () => {
-        if (this.preferenceInFlight.get(key) === request) {
-          this.preferenceInFlight.delete(key);
-        }
-      },
-    );
+    request = this.performPendingLanguageReconciliation(
+      normalized,
+      key,
+      generation,
+    ).finally(() => {
+      if (this.preferenceInFlight.get(key) === request) {
+        this.preferenceInFlight.delete(key);
+      }
+    });
     this.preferenceInFlight.set(key, request);
     return request;
   }
@@ -323,10 +329,13 @@ export class LocaleRuntime {
   private async performPendingLanguageReconciliation(
     normalized: NormalizedLocaleIdentity,
     key: string,
+    generation: number,
   ): Promise<boolean> {
+    const isCurrent = () => this.canReconcilePreference(normalized, generation);
     // Loop because a newer offline choice may be written while PATCH is in flight.
     for (;;) {
       const raw = await this.safeGet(key);
+      if (!isCurrent()) return false;
       if (!raw) return true;
 
       let pending: PendingLanguage;
@@ -346,9 +355,11 @@ export class LocaleRuntime {
         return true;
       }
 
-      if (!(await this.checkHealth())) return false;
+      if (!(await this.checkHealth()) || !isCurrent()) return false;
       const token = await this.config.getAccessToken();
-      if (!token) return false;
+      if (!token || !isCurrent() || !tokenMatchesLocaleIdentity(token, normalized)) {
+        return false;
+      }
       try {
         const response = await this.config.fetch(
           this.url(this.config.preferenceEndpoint),
@@ -362,9 +373,10 @@ export class LocaleRuntime {
             body: JSON.stringify({ preferred_language: pending.language }),
           },
         );
-        if (!response.ok) return false;
+        if (!response.ok || !isCurrent()) return false;
         // Do not erase a newer choice that arrived while this request was running.
         const latest = await this.safeGet(key);
+        if (!isCurrent()) return false;
         if (latest === raw) {
           await this.config.storage.removeItem(key);
           return true;
@@ -373,6 +385,17 @@ export class LocaleRuntime {
         return false;
       }
     }
+  }
+
+  private canReconcilePreference(
+    identity: NormalizedLocaleIdentity,
+    generation: number,
+  ): boolean {
+    // A standalone preference caller may not have selected an active catalog.
+    return (
+      generation === this.sessionGeneration &&
+      (this.activeIdentity === null || sameIdentity(this.activeIdentity, identity))
+    );
   }
 
   /**
@@ -421,44 +444,47 @@ export class LocaleRuntime {
   setActiveIdentity(identity: LocaleIdentity | null): void {
     const normalized = identity ? normalizeIdentity(identity) : null;
     if (!sameIdentity(this.activeIdentity, normalized)) {
-      this.sessionGeneration += 1;
-      this.inFlight.clear();
-      this.preferenceInFlight.clear();
+      this.invalidateAuthenticatedRequests();
     }
     this.activeIdentity = normalized;
   }
 
   /** Call after access-token replacement so no in-flight response crosses sessions. */
   notifyTokenChanged(): void {
+    this.activeIdentity = null;
+    this.invalidateAuthenticatedRequests();
+  }
+
+  private invalidateAuthenticatedRequests(): void {
     this.sessionGeneration += 1;
     this.inFlight.clear();
     this.preferenceInFlight.clear();
-    this.activeIdentity = null;
   }
 
   /** Removes all persisted locale and pending-preference state for one identity. */
   async clearIdentity(identity: LocaleIdentity): Promise<void> {
     const normalized = normalizeIdentity(identity);
+    if (sameIdentity(this.activeIdentity, normalized)) this.activeIdentity = null;
+    this.invalidateAuthenticatedRequests();
+    await this.removeIdentityStorage(normalized);
+  }
+
+  private async removeIdentityStorage(
+    normalized: NormalizedLocaleIdentity,
+  ): Promise<void> {
     const index = await this.readIndex();
     const prefix = `${this.config.storageNamespace}:cache:${encode(normalized.userId)}:${encode(normalized.organizationId)}:`;
     const owned = index.filter((entry) => entry.key.startsWith(prefix));
     await Promise.all(owned.map((entry) => this.config.storage.removeItem(entry.key)));
     await this.config.storage.removeItem(this.pendingKey(normalized));
     await this.writeIndex(index.filter((entry) => !entry.key.startsWith(prefix)));
-    if (sameIdentity(this.activeIdentity, normalized)) this.activeIdentity = null;
-    this.sessionGeneration += 1;
-    this.inFlight.clear();
-    this.preferenceInFlight.clear();
   }
 
   /** Logout hook: clears the supplied (or active) identity without affecting other users. */
   async handleLogout(identity?: LocaleIdentity): Promise<void> {
     const target = identity ? normalizeIdentity(identity) : this.activeIdentity;
-    if (target) await this.clearIdentity(target);
-    this.activeIdentity = null;
-    this.sessionGeneration += 1;
-    this.inFlight.clear();
-    this.preferenceInFlight.clear();
+    this.notifyTokenChanged();
+    if (target) await this.removeIdentityStorage(target);
   }
 
   private async performEffectiveRefresh(
@@ -467,16 +493,23 @@ export class LocaleRuntime {
     generation: number,
   ): Promise<LocaleRefreshResult> {
     const cached = await this.hydrate(identity, language);
-    if (!(await this.checkHealth())) {
+    this.assertCurrentSession(identity, generation);
+    const healthy = await this.checkHealth();
+    this.assertCurrentSession(identity, generation);
+    if (!healthy) {
       if (cached) {
-        this.assertCurrentSession(identity, generation);
         return { locale: cached.locale, source: "cache", notModified: false };
       }
       throw new Error("envoy-ts-auth locale: user-management is unavailable.");
     }
     await this.reconcilePendingLanguage(identity);
+    this.assertCurrentSession(identity, generation);
     const token = await this.config.getAccessToken();
+    this.assertCurrentSession(identity, generation);
     if (!token) throw new Error("envoy-ts-auth locale: authentication is required.");
+    if (!tokenMatchesLocaleIdentity(token, identity)) {
+      throw new LocaleSessionChangedError();
+    }
 
     const url = new URL(this.url(this.config.effectiveEndpoint));
     url.searchParams.set("application", this.config.application);
@@ -514,6 +547,7 @@ export class LocaleRuntime {
       };
       this.assertCurrentSession(identity, generation);
       await this.persistEnvelope(envelope);
+      this.assertCurrentSession(identity, generation);
       return { locale, source: "network", notModified: false };
     } catch (error) {
       if (cached && isTransientFailure(error)) {
@@ -752,6 +786,72 @@ function sameIdentity(
         left.organizationId === right.organizationId,
     )
   );
+}
+
+function isPlatformIdClaim(claim: unknown): claim is string | number {
+  return typeof claim === "number"
+    ? Number.isSafeInteger(claim) && claim >= 0
+    : typeof claim === "string" && /^[0-9]+$/.test(claim);
+}
+
+function tokenMatchesLocaleIdentity(
+  token: string,
+  identity: NormalizedLocaleIdentity,
+): boolean {
+  const claims = readPlatformAccessClaims(token);
+  // The backend still authenticates every token. This can only reject a scope mismatch.
+  return claims === null || sameIdentity(claims, identity);
+}
+
+function readPlatformAccessClaims(token: string): NormalizedLocaleIdentity | null {
+  const parts = token.split(".");
+  const payload = parts[1];
+  if (
+    parts.length !== 3 ||
+    !parts[0] ||
+    !payload ||
+    !parts[2] ||
+    payload.length % 4 === 1
+  ) {
+    return null;
+  }
+
+  // Decode the JWT's UTF-8 payload without requiring browser globals in React Native.
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  let encoded = "";
+  let value = 0;
+  let bits = 0;
+  for (const character of payload) {
+    const digit = alphabet.indexOf(character);
+    if (digit === -1) return null;
+    value = (value << 6) | digit;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      const byte = value >>> bits;
+      encoded += `%${byte.toString(16).padStart(2, "0")}`;
+      value &= (1 << bits) - 1;
+    }
+  }
+  try {
+    const claims: unknown = JSON.parse(decodeURIComponent(encoded));
+    if (!claims || typeof claims !== "object") return null;
+    const { token_type, auth_version, user_id, organization_id } =
+      claims as Record<string, unknown>;
+    if (
+      token_type !== "access" ||
+      typeof auth_version !== "number" ||
+      !Number.isSafeInteger(auth_version) ||
+      auth_version < 0 ||
+      !isPlatformIdClaim(user_id) ||
+      !isPlatformIdClaim(organization_id)
+    ) {
+      return null;
+    }
+    return normalizeIdentity({ userId: user_id, organizationId: organization_id });
+  } catch {
+    return null;
+  }
 }
 
 class LocaleHttpError extends Error {

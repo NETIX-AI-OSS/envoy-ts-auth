@@ -12,10 +12,13 @@ Thanks for contributing to `envoy-ts-auth`.
 ## Development Setup
 
 ```bash
-yarn install
-yarn build
-yarn docs
+pnpm install --frozen-lockfile
+pnpm build
+pnpm test
+pnpm run docs
 ```
+
+When TypeScript changes, include any rebuilt `dist/` files in the same change.
 
 ## Pull Request Expectations
 

@@ -200,6 +200,7 @@ export const PERMISSIONS = [
   "ppm-work-order-edit",
   "ppm-work-order-reopen",
   "ppm-work-order-view",
+  "priority-ladder-write",
   "public-holiday-edit",
   "public-holiday-view",
   "purchase-order-delete",
@@ -231,6 +232,8 @@ export const PERMISSIONS = [
   "reactive-work-order-edit",
   "reactive-work-order-facilities-edit",
   "reactive-work-order-facilities-view",
+  "reactive-work-order-ncr-raise",
+  "reactive-work-order-ncr-review-config",
   "reactive-work-order-quotation-approval-reminder",
   "reactive-work-order-quotation-client-approval-cancel",
   "reactive-work-order-quotation-client-approval-edit",
@@ -498,6 +501,7 @@ export const PERMISSIONS_BY_MODULE: Readonly<Record<string, readonly Permission[
     "fault-category-write",
     "faults-management-edit",
     "faults-management-view",
+    "priority-ladder-write",
     "service-category-write"
   ],
   "Inspections": [
@@ -631,6 +635,8 @@ export const PERMISSIONS_BY_MODULE: Readonly<Record<string, readonly Permission[
     "reactive-work-order-edit",
     "reactive-work-order-facilities-edit",
     "reactive-work-order-facilities-view",
+    "reactive-work-order-ncr-raise",
+    "reactive-work-order-ncr-review-config",
     "reactive-work-order-quotation-approval-reminder",
     "reactive-work-order-quotation-client-approval-cancel",
     "reactive-work-order-quotation-client-approval-edit",

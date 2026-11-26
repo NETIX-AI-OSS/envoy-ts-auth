@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   Auth,
@@ -73,6 +74,14 @@ function stubLocationRecordingHref(url: string) {
   return assignments
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
+}
+
 describe('Auth', () => {
   let retrySleep: ReturnType<typeof vi.fn>
 
@@ -83,6 +92,29 @@ describe('Auth', () => {
     // Swap real setTimeout-based retry sleep for an instant spy in tests.
     retrySleep = vi.fn(async () => {})
     __setDefaultRetrySleepForTests(retrySleep)
+  })
+
+  it('clears both native credentials using the legacy bulk storage API', async () => {
+    Auth.initialize({ ...baseConfig, NATIVE_PLATFORM: true })
+
+    await Auth.getInstance().clearCookies()
+
+    expect(AsyncStorage.multiRemove).toHaveBeenCalledWith(['token', 'refresh'])
+  })
+
+  it('supports native AsyncStorage v3 when an expired session is cleared', async () => {
+    const removeMany = vi.fn(async () => {})
+    Object.assign(AsyncStorage, { removeMany })
+    const onLogout = vi.fn()
+    Auth.initialize({ ...baseConfig, NATIVE_PLATFORM: true, ON_LOGOUT: onLogout })
+    try {
+      await expect(Auth.getInstance().getToken()).resolves.toBeNull()
+      expect(removeMany).toHaveBeenCalledWith(['token', 'refresh'])
+      expect(AsyncStorage.multiRemove).not.toHaveBeenCalled()
+      expect(onLogout).toHaveBeenCalled()
+    } finally {
+      Reflect.deleteProperty(AsyncStorage, 'removeMany')
+    }
   })
 
   // ── Initialization ────────────────────────────────────────────────────────
@@ -690,8 +722,12 @@ describe('Auth', () => {
     it('invalidates the previous account cache before storing a new login', async () => {
       Auth.initialize(baseConfig)
       const auth = Auth.getInstance()
-      vi.spyOn(auth, 'getToken').mockResolvedValue('old-token')
-      vi.spyOn(auth, 'setKeyValue').mockResolvedValue(undefined)
+      const stored = new Map([['token', 'old-token']])
+      vi.spyOn(auth, 'getToken').mockImplementation(async () => stored.get('token') ?? null)
+      vi.spyOn(auth, 'getKeyValue').mockImplementation(async (key) => stored.get(key) ?? null)
+      vi.spyOn(auth, 'setKeyValue').mockImplementation(async ({ key, value }) => {
+        stored.set(key, value)
+      })
       vi.spyOn(auth, 'redirectToSourcePage').mockReturnValue(undefined)
       global.fetch = vi.fn()
         .mockResolvedValueOnce({
@@ -965,6 +1001,88 @@ describe('Auth', () => {
   // ── User info ─────────────────────────────────────────────────────────────
 
   describe('getUser', () => {
+    function withStoredCredential(onLogout = vi.fn()) {
+      Auth.initialize({ ...baseConfig, ON_LOGOUT: onLogout })
+      const auth = Auth.getInstance()
+      let storedToken: string | null = 'alpha-access'
+      vi.spyOn(auth, 'isKeyPresent').mockImplementation(async (key) => key === 'token' && !!storedToken)
+      vi.spyOn(auth, 'getKeyValue').mockImplementation(async (key) => key === 'token' ? storedToken : null)
+      return { auth, onLogout, storeToken: (next: string | null) => { storedToken = next } }
+    }
+
+    it.each([200, 401])('discards a former account’s delayed %s after the replacement is verified', async (status) => {
+      const { auth, onLogout, storeToken } = withStoredCredential()
+      const clear = vi.spyOn(auth, 'clearCookies')
+      const started = deferred<void>()
+      const former = deferred<Response>()
+      const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith(baseConfig.VERIFY_ENDPOINT)) return new Response(null, { status: 200 })
+        const bearer = new Headers(init?.headers).get('Authorization')
+        if (bearer === 'Bearer alpha-access') {
+          started.resolve()
+          return former.promise
+        }
+        expect(bearer).toBe('Bearer beta-access')
+        return Response.json({ id: 2, organization_id: 202 })
+      })
+      vi.stubGlobal('fetch', fetcher)
+
+      const pending = auth.getUser()
+      await started.promise
+      storeToken('beta-access')
+      await expect(auth.getToken()).resolves.toBe('beta-access')
+      await expect(auth.getUser()).resolves.toEqual({ id: 2, organization_id: 202 })
+
+      former.resolve(Response.json({ id: 1, organization_id: 101 }, { status }))
+      const stale = await pending
+      expect(clear).not.toHaveBeenCalled()
+      expect(onLogout).not.toHaveBeenCalled()
+      await expect(auth.getUser()).resolves.toEqual({ id: 2, organization_id: 202 })
+      expect(stale).toBeNull()
+      expect(fetcher.mock.calls.filter(([url]) => String(url).endsWith('/auth/me/'))).toHaveLength(2)
+    })
+
+    it('discards a body that finishes decoding after a cookie hop, even before another verification', async () => {
+      const { auth, storeToken } = withStoredCredential()
+      const started = deferred<void>()
+      const body = deferred<{ id: number }>()
+      vi.stubGlobal('fetch', vi.fn()
+        .mockResolvedValueOnce(new Response(null, { status: 200 }))
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => {
+            started.resolve()
+            return body.promise
+          },
+        }))
+
+      const pending = auth.getUser()
+      await started.promise
+      storeToken('beta-access')
+      body.resolve({ id: 1 })
+      await expect(pending).resolves.toBeNull()
+    })
+
+    it('returns and caches data while the verified stored bearer stays current', async () => {
+      const { auth } = withStoredCredential()
+      const started = deferred<void>()
+      const result = deferred<Response>()
+      const fetcher = vi.fn()
+        .mockResolvedValueOnce(new Response(null, { status: 200 }))
+        .mockImplementationOnce(() => {
+          started.resolve()
+          return result.promise
+        })
+      vi.stubGlobal('fetch', fetcher)
+
+      const pending = auth.getUser()
+      await started.promise
+      result.resolve(Response.json({ id: 1 }))
+      await expect(pending).resolves.toEqual({ id: 1 })
+      await expect(auth.getUser()).resolves.toEqual({ id: 1 })
+      expect(fetcher).toHaveBeenCalledTimes(2)
+    })
+
     it('fetches user from the API and returns data', async () => {
       Auth.initialize(baseConfig)
       const auth = Auth.getInstance()
@@ -992,13 +1110,7 @@ describe('Auth', () => {
     })
 
     it('does not return the previous account when shared storage changes', async () => {
-      Auth.initialize(baseConfig)
-      const auth = Auth.getInstance()
-      vi.spyOn(auth, 'isKeyPresent').mockResolvedValue(true)
-      vi.spyOn(auth, 'getKeyValue')
-        .mockResolvedValueOnce('first-account-token')
-        .mockResolvedValueOnce('second-account-token')
-        .mockResolvedValueOnce('second-account-token')
+      const { auth, storeToken } = withStoredCredential()
       global.fetch = vi.fn()
         .mockResolvedValueOnce({ ok: true, status: 200 })
         .mockResolvedValueOnce({
@@ -1012,6 +1124,7 @@ describe('Auth', () => {
         })
 
       expect(await auth.getUser()).toMatchObject({ id: 1 })
+      storeToken('beta-access')
       expect(await auth.getUser()).toMatchObject({ id: 2 })
     })
 

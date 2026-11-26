@@ -179,9 +179,12 @@ class Auth {
   private static initialized = false;
   private config: AuthConfig;
   private cachedToken: string | null = null;
-  private cachedUser: Record<string, any> | null = null;
   private tokenTimestamp: number | null = null;
-  private userTimestamp: number | null = null;
+  private sessionGeneration = 0;
+  private userSession: {
+    bearer: string;
+    cached?: { data: Record<string, any>; fetchedAt: number };
+  } | null = null;
   // One involuntary redirect per dead session; deliberate login/logout re-arm it below.
   private redirectInProgress = false;
   private static readonly CACHE_DURATION = 60 * 1000; // 1 minute
@@ -233,10 +236,10 @@ class Auth {
 
   /** Drops all in-memory state; token changes must also drop the cached user, since permissions/org membership belong to the token subject that populated it. */
   private clearSessionCache() {
+    this.sessionGeneration += 1;
     this.cachedToken = null;
-    this.cachedUser = null;
     this.tokenTimestamp = null;
-    this.userTimestamp = null;
+    this.userSession = null;
   }
 
   /** Removes only the access token, retaining the refresh token for a single refresh attempt. */
@@ -373,7 +376,15 @@ class Auth {
     if (!this.authConfig) throw AuthConfigUnavailableError();
     this.clearSessionCache();
     if (this.authConfig.NATIVE_PLATFORM) {
-      await AsyncStorage.multiRemove(["token", "refresh"]);
+      const nativeStorage = AsyncStorage as typeof AsyncStorage & {
+        removeMany?: (keys: string[]) => Promise<void>;
+      };
+      const keys = ["token", "refresh"];
+      if (nativeStorage.removeMany) {
+        await nativeStorage.removeMany(keys);
+      } else {
+        await nativeStorage.multiRemove(keys);
+      }
     } else {
       Cookies.remove("token", cookieAttributes(this.authConfig));
       Cookies.remove("refresh", cookieAttributes(this.authConfig));
@@ -438,25 +449,31 @@ class Auth {
    * @throws {Error} If the Auth config is unavailable.
    */
   async getUser() {
-    const currentTime = Date.now();
-    let tokenForRequest: string | null = null;
-    if (
-      this.cachedUser &&
-      this.userTimestamp &&
-      currentTime - this.userTimestamp < Auth.CACHE_DURATION
-    ) {
-      // Confirm cache still belongs to this session before returning it.
-      tokenForRequest = await this.getToken();
-      if (tokenForRequest && this.cachedUser) {
-        return this.cachedUser;
-      }
-      if (!tokenForRequest) return null;
-    }
     if (!this.authConfig) throw AuthConfigUnavailableError();
     try {
-      const token = tokenForRequest ?? (await this.getToken());
-      if (!token) {
-        return null;
+      const beforeLookup = this.sessionGeneration;
+      const token = await this.getToken();
+      if (!token) return null;
+      const generation = this.sessionGeneration;
+      // A delegated token getter can provide a bearer without using Auth's storage.
+      // When storage is involved, the exact access credential must stay current.
+      const storageBacked =
+        this.cachedToken !== null || beforeLookup !== generation;
+      if (storageBacked) {
+        const stored = await this.getKeyValue("token");
+        if (generation !== this.sessionGeneration || stored !== token) {
+          return null;
+        }
+      }
+
+      const session =
+        this.userSession?.bearer === token ? this.userSession : { bearer: token };
+      this.userSession = session;
+      if (
+        session.cached?.data &&
+        Date.now() - session.cached.fetchedAt < Auth.CACHE_DURATION
+      ) {
+        return session.cached.data;
       }
       const response = await fetchIdempotentWithRetry(
         `${this.authConfig.AUTH_BASE_URL}/auth/me/`,
@@ -469,17 +486,21 @@ class Auth {
         },
       );
       if (response) {
-        if (response.ok) {
-          const data = await response.json();
-          this.userTimestamp = Date.now();
-          this.cachedUser = data;
-          return data;
-        } else if (isSessionError(response.status)) {
-          await this.endSession();
-        } else {
-          // Not a session error (403/429/5xx): let caller render its own UI.
+        // 403/429/5xx do not invalidate a session.
+        if (!response.ok && !isSessionError(response.status)) return null;
+        const data = response.ok ? await response.json() : null;
+        const currentToken = storageBacked
+          ? await this.getKeyValue("token")
+          : token;
+        // Check after decoding as another tab may replace the bearer at either await.
+        if (this.userSession !== session || currentToken !== token) {
           return null;
         }
+        if (response.ok) {
+          session.cached = { data, fetchedAt: Date.now() };
+          return data;
+        }
+        await this.endSession();
       }
     } catch (error: unknown) {
       const err = error as ErrorHandler;

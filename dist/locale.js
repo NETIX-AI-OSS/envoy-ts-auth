@@ -41,7 +41,7 @@ const MAX_WARNED_LANGUAGES = 32;
  */
 class LocaleRuntime {
     constructor(config) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o;
         /** Distinct unparseable language codes already reported; capped by MAX_WARNED_LANGUAGES. */
         this.warnedInvalidLanguages = new Set();
         this.inFlight = new Map();
@@ -56,7 +56,7 @@ class LocaleRuntime {
             ((_b = config.maxCacheEntries) !== null && _b !== void 0 ? _b : 8) < 1) {
             throw new Error("envoy-ts-auth locale: maxCacheEntries must be a positive integer.");
         }
-        const runtimeFetch = (_c = config.fetch) !== null && _c !== void 0 ? _c : globalThis.fetch;
+        const runtimeFetch = (_c = config.fetch) !== null && _c !== void 0 ? _c : (_d = globalThis.fetch) === null || _d === void 0 ? void 0 : _d.bind(globalThis);
         if (!runtimeFetch) {
             throw new Error("envoy-ts-auth locale: fetch is unavailable.");
         }
@@ -66,19 +66,19 @@ class LocaleRuntime {
             storage: config.storage,
             getAccessToken: config.getAccessToken,
             fetch: runtimeFetch,
-            healthEndpoint: (_d = config.healthEndpoint) !== null && _d !== void 0 ? _d : "healthz/",
-            effectiveEndpoint: (_e = config.effectiveEndpoint) !== null && _e !== void 0 ? _e : "api/organization-locale/effective/",
-            preferenceEndpoint: (_f = config.preferenceEndpoint) !== null && _f !== void 0 ? _f : "auth/me/language/",
-            anonymousEffectiveEndpoint: (_g = config.anonymousEffectiveEndpoint) !== null && _g !== void 0 ? _g : "auth/organization-locale/effective/",
-            maxCacheEntries: (_h = config.maxCacheEntries) !== null && _h !== void 0 ? _h : 8,
-            storageNamespace: (_j = config.storageNamespace) !== null && _j !== void 0 ? _j : DEFAULT_NAMESPACE,
+            healthEndpoint: (_e = config.healthEndpoint) !== null && _e !== void 0 ? _e : "healthz/",
+            effectiveEndpoint: (_f = config.effectiveEndpoint) !== null && _f !== void 0 ? _f : "api/organization-locale/effective/",
+            preferenceEndpoint: (_g = config.preferenceEndpoint) !== null && _g !== void 0 ? _g : "auth/me/language/",
+            anonymousEffectiveEndpoint: (_h = config.anonymousEffectiveEndpoint) !== null && _h !== void 0 ? _h : "auth/organization-locale/effective/",
+            maxCacheEntries: (_j = config.maxCacheEntries) !== null && _j !== void 0 ? _j : 8,
+            storageNamespace: (_k = config.storageNamespace) !== null && _k !== void 0 ? _k : DEFAULT_NAMESPACE,
             // Strict on purpose: a misconfigured fallback must fail at construction, not silently
             // on the first bad read.
-            fallbackLanguage: normalizeLanguage((_k = config.fallbackLanguage) !== null && _k !== void 0 ? _k : FALLBACK_LANGUAGE),
-            onInvalidLanguage: (_l = config.onInvalidLanguage) !== null && _l !== void 0 ? _l : ((language, fallback) => {
+            fallbackLanguage: normalizeLanguage((_l = config.fallbackLanguage) !== null && _l !== void 0 ? _l : FALLBACK_LANGUAGE),
+            onInvalidLanguage: (_m = config.onInvalidLanguage) !== null && _m !== void 0 ? _m : ((language, fallback) => {
                 console.warn(`envoy-ts-auth locale: invalid language code ${JSON.stringify(language)}; falling back to "${fallback}".`);
             }),
-            now: (_m = config.now) !== null && _m !== void 0 ? _m : Date.now,
+            now: (_o = config.now) !== null && _o !== void 0 ? _o : Date.now,
         };
     }
     /** Returns true only when user-management answers its health endpoint successfully. */
@@ -145,8 +145,11 @@ class LocaleRuntime {
     setPreferredLanguage(identity, language) {
         return __awaiter(this, void 0, void 0, function* () {
             const normalized = normalizeIdentity(identity);
+            const generation = this.sessionGeneration;
             const pending = Object.assign(Object.assign({ schemaVersion: 1 }, normalized), { language: normalizeLanguage(language), updatedAt: this.config.now() });
             yield this.config.storage.setItem(this.pendingKey(normalized), JSON.stringify(pending));
+            if (!this.canReconcilePreference(normalized, generation))
+                return false;
             return this.reconcilePendingLanguage(normalized);
         });
     }
@@ -154,12 +157,15 @@ class LocaleRuntime {
     reconcilePendingLanguage(identity) {
         return __awaiter(this, void 0, void 0, function* () {
             const normalized = normalizeIdentity(identity);
+            const generation = this.sessionGeneration;
+            if (!this.canReconcilePreference(normalized, generation))
+                return false;
             const key = this.pendingKey(normalized);
             const existing = this.preferenceInFlight.get(key);
             if (existing)
                 return existing;
             let request;
-            request = this.performPendingLanguageReconciliation(normalized, key).finally(() => {
+            request = this.performPendingLanguageReconciliation(normalized, key, generation).finally(() => {
                 if (this.preferenceInFlight.get(key) === request) {
                     this.preferenceInFlight.delete(key);
                 }
@@ -168,11 +174,14 @@ class LocaleRuntime {
             return request;
         });
     }
-    performPendingLanguageReconciliation(normalized, key) {
+    performPendingLanguageReconciliation(normalized, key, generation) {
         return __awaiter(this, void 0, void 0, function* () {
+            const isCurrent = () => this.canReconcilePreference(normalized, generation);
             // Loop because a newer offline choice may be written while PATCH is in flight.
             for (;;) {
                 const raw = yield this.safeGet(key);
+                if (!isCurrent())
+                    return false;
                 if (!raw)
                     return true;
                 let pending;
@@ -190,11 +199,12 @@ class LocaleRuntime {
                     yield this.config.storage.removeItem(key);
                     return true;
                 }
-                if (!(yield this.checkHealth()))
+                if (!(yield this.checkHealth()) || !isCurrent())
                     return false;
                 const token = yield this.config.getAccessToken();
-                if (!token)
+                if (!token || !isCurrent() || !tokenMatchesLocaleIdentity(token, normalized)) {
                     return false;
+                }
                 try {
                     const response = yield this.config.fetch(this.url(this.config.preferenceEndpoint), {
                         method: "PATCH",
@@ -205,10 +215,12 @@ class LocaleRuntime {
                         },
                         body: JSON.stringify({ preferred_language: pending.language }),
                     });
-                    if (!response.ok)
+                    if (!response.ok || !isCurrent())
                         return false;
                     // Do not erase a newer choice that arrived while this request was running.
                     const latest = yield this.safeGet(key);
+                    if (!isCurrent())
+                        return false;
                     if (latest === raw) {
                         yield this.config.storage.removeItem(key);
                         return true;
@@ -219,6 +231,11 @@ class LocaleRuntime {
                 }
             }
         });
+    }
+    canReconcilePreference(identity, generation) {
+        // A standalone preference caller may not have selected an active catalog.
+        return (generation === this.sessionGeneration &&
+            (this.activeIdentity === null || sameIdentity(this.activeIdentity, identity)));
     }
     /**
      * Fetches universal-login copy before authentication. The context token is
@@ -262,62 +279,70 @@ class LocaleRuntime {
     setActiveIdentity(identity) {
         const normalized = identity ? normalizeIdentity(identity) : null;
         if (!sameIdentity(this.activeIdentity, normalized)) {
-            this.sessionGeneration += 1;
-            this.inFlight.clear();
-            this.preferenceInFlight.clear();
+            this.invalidateAuthenticatedRequests();
         }
         this.activeIdentity = normalized;
     }
     /** Call after access-token replacement so no in-flight response crosses sessions. */
     notifyTokenChanged() {
+        this.activeIdentity = null;
+        this.invalidateAuthenticatedRequests();
+    }
+    invalidateAuthenticatedRequests() {
         this.sessionGeneration += 1;
         this.inFlight.clear();
         this.preferenceInFlight.clear();
-        this.activeIdentity = null;
     }
     /** Removes all persisted locale and pending-preference state for one identity. */
     clearIdentity(identity) {
         return __awaiter(this, void 0, void 0, function* () {
             const normalized = normalizeIdentity(identity);
+            if (sameIdentity(this.activeIdentity, normalized))
+                this.activeIdentity = null;
+            this.invalidateAuthenticatedRequests();
+            yield this.removeIdentityStorage(normalized);
+        });
+    }
+    removeIdentityStorage(normalized) {
+        return __awaiter(this, void 0, void 0, function* () {
             const index = yield this.readIndex();
             const prefix = `${this.config.storageNamespace}:cache:${encode(normalized.userId)}:${encode(normalized.organizationId)}:`;
             const owned = index.filter((entry) => entry.key.startsWith(prefix));
             yield Promise.all(owned.map((entry) => this.config.storage.removeItem(entry.key)));
             yield this.config.storage.removeItem(this.pendingKey(normalized));
             yield this.writeIndex(index.filter((entry) => !entry.key.startsWith(prefix)));
-            if (sameIdentity(this.activeIdentity, normalized))
-                this.activeIdentity = null;
-            this.sessionGeneration += 1;
-            this.inFlight.clear();
-            this.preferenceInFlight.clear();
         });
     }
     /** Logout hook: clears the supplied (or active) identity without affecting other users. */
     handleLogout(identity) {
         return __awaiter(this, void 0, void 0, function* () {
             const target = identity ? normalizeIdentity(identity) : this.activeIdentity;
+            this.notifyTokenChanged();
             if (target)
-                yield this.clearIdentity(target);
-            this.activeIdentity = null;
-            this.sessionGeneration += 1;
-            this.inFlight.clear();
-            this.preferenceInFlight.clear();
+                yield this.removeIdentityStorage(target);
         });
     }
     performEffectiveRefresh(identity, language, generation) {
         return __awaiter(this, void 0, void 0, function* () {
             const cached = yield this.hydrate(identity, language);
-            if (!(yield this.checkHealth())) {
+            this.assertCurrentSession(identity, generation);
+            const healthy = yield this.checkHealth();
+            this.assertCurrentSession(identity, generation);
+            if (!healthy) {
                 if (cached) {
-                    this.assertCurrentSession(identity, generation);
                     return { locale: cached.locale, source: "cache", notModified: false };
                 }
                 throw new Error("envoy-ts-auth locale: user-management is unavailable.");
             }
             yield this.reconcilePendingLanguage(identity);
+            this.assertCurrentSession(identity, generation);
             const token = yield this.config.getAccessToken();
+            this.assertCurrentSession(identity, generation);
             if (!token)
                 throw new Error("envoy-ts-auth locale: authentication is required.");
+            if (!tokenMatchesLocaleIdentity(token, identity)) {
+                throw new LocaleSessionChangedError();
+            }
             const url = new URL(this.url(this.config.effectiveEndpoint));
             url.searchParams.set("application", this.config.application);
             url.searchParams.set("language", language);
@@ -343,6 +368,7 @@ class LocaleRuntime {
                 const envelope = Object.assign(Object.assign({ schemaVersion: 1, apiOrigin: this.apiOrigin(), application: this.config.application }, identity), { language, etag: response.headers.get("ETag"), fetchedAt: this.config.now(), locale });
                 this.assertCurrentSession(identity, generation);
                 yield this.persistEnvelope(envelope);
+                this.assertCurrentSession(identity, generation);
                 return { locale, source: "network", notModified: false };
             }
             catch (error) {
@@ -540,6 +566,63 @@ function sameIdentity(left, right) {
             right &&
             left.userId === right.userId &&
             left.organizationId === right.organizationId));
+}
+function isPlatformIdClaim(claim) {
+    return typeof claim === "number"
+        ? Number.isSafeInteger(claim) && claim >= 0
+        : typeof claim === "string" && /^[0-9]+$/.test(claim);
+}
+function tokenMatchesLocaleIdentity(token, identity) {
+    const claims = readPlatformAccessClaims(token);
+    // The backend still authenticates every token. This can only reject a scope mismatch.
+    return claims === null || sameIdentity(claims, identity);
+}
+function readPlatformAccessClaims(token) {
+    const parts = token.split(".");
+    const payload = parts[1];
+    if (parts.length !== 3 ||
+        !parts[0] ||
+        !payload ||
+        !parts[2] ||
+        payload.length % 4 === 1) {
+        return null;
+    }
+    // Decode the JWT's UTF-8 payload without requiring browser globals in React Native.
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    let encoded = "";
+    let value = 0;
+    let bits = 0;
+    for (const character of payload) {
+        const digit = alphabet.indexOf(character);
+        if (digit === -1)
+            return null;
+        value = (value << 6) | digit;
+        bits += 6;
+        if (bits >= 8) {
+            bits -= 8;
+            const byte = value >>> bits;
+            encoded += `%${byte.toString(16).padStart(2, "0")}`;
+            value &= (1 << bits) - 1;
+        }
+    }
+    try {
+        const claims = JSON.parse(decodeURIComponent(encoded));
+        if (!claims || typeof claims !== "object")
+            return null;
+        const { token_type, auth_version, user_id, organization_id } = claims;
+        if (token_type !== "access" ||
+            typeof auth_version !== "number" ||
+            !Number.isSafeInteger(auth_version) ||
+            auth_version < 0 ||
+            !isPlatformIdClaim(user_id) ||
+            !isPlatformIdClaim(organization_id)) {
+            return null;
+        }
+        return normalizeIdentity({ userId: user_id, organizationId: organization_id });
+    }
+    catch (_a) {
+        return null;
+    }
 }
 class LocaleHttpError extends Error {
     constructor(operation, status) {
