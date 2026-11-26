@@ -179,6 +179,8 @@ exports.PERMISSIONS = [
     "material-inventory-write",
     "metric-edit",
     "metric-view",
+    "ncr-raise",
+    "ncr-review-config",
     "notification-delete",
     "notification-edit",
     "notification-view",
@@ -561,6 +563,10 @@ exports.PERMISSIONS_BY_MODULE = {
     "Licensing": [
         "license-admin",
         "license-view"
+    ],
+    "NCR": [
+        "ncr-raise",
+        "ncr-review-config"
     ],
     "Notifications": [
         "notification-delete",
